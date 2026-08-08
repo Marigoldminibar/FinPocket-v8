@@ -46,7 +46,7 @@ body{padding:20px}
 </main>
 
 <script>
-const ADMIN_PIN = "8383";
+const ADMIN_PIN_HASH = "ce332c83a236eaf5a0d83d4630a615dc665115149d1f8bb503c92882819804ab";
 const lockScreen = document.getElementById("lockScreen");
 const qrScreen = document.getElementById("qrScreen");
 const pinInput = document.getElementById("pin");
@@ -54,8 +54,11 @@ const pinError = document.getElementById("pinError");
 const input = document.getElementById("url");
 const qr = document.getElementById("qr");
 
-function unlock(){
-    if(pinInput.value === ADMIN_PIN){
+async function unlock(){
+    const data = new TextEncoder().encode(pinInput.value);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,"0")).join("");
+    if(hash === ADMIN_PIN_HASH){
         lockScreen.classList.add("hidden");
         qrScreen.classList.remove("hidden");
         pinInput.value = "";
