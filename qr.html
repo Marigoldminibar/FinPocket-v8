@@ -54,20 +54,45 @@ const pinError = document.getElementById("pinError");
 const input = document.getElementById("url");
 const qr = document.getElementById("qr");
 
+const QR_MAX_ATTEMPTS = 5;
+const QR_LOCK_MS = 15 * 60 * 1000;
+
 async function unlock(){
+    const now = Date.now();
+    const lockedUntil = Number(localStorage.getItem("fp_qr_locked_until") || 0);
+    let attempts = Number(localStorage.getItem("fp_qr_attempts") || 0);
+
+    if(now < lockedUntil){
+        const minutes = Math.ceil((lockedUntil - now) / 60000);
+        pinError.textContent = "Çok fazla yanlış deneme. " + minutes + " dakika bekleyin.";
+        return;
+    }
+
     const data = new TextEncoder().encode(pinInput.value);
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,"0")).join("");
+
     if(hash === ADMIN_PIN_HASH){
+        localStorage.removeItem("fp_qr_attempts");
+        localStorage.removeItem("fp_qr_locked_until");
         lockScreen.classList.add("hidden");
         qrScreen.classList.remove("hidden");
         pinInput.value = "";
         pinError.textContent = "";
         initQR();
     }else{
-        pinError.textContent = "PIN yanlış.";
+        attempts++;
         pinInput.value = "";
-        pinInput.focus();
+
+        if(attempts >= QR_MAX_ATTEMPTS){
+            localStorage.setItem("fp_qr_locked_until", String(now + QR_LOCK_MS));
+            localStorage.removeItem("fp_qr_attempts");
+            pinError.textContent = "5 yanlış deneme. 15 dakika kilitlendi.";
+        }else{
+            localStorage.setItem("fp_qr_attempts", String(attempts));
+            pinError.textContent = "PIN yanlış. Kalan deneme: " + (QR_MAX_ATTEMPTS - attempts);
+            pinInput.focus();
+        }
     }
 }
 
