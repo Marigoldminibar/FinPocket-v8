@@ -26,14 +26,14 @@
     debtList: $('debtList'), totalDebt: $('totalDebt'), totalIncome: $('totalIncome'),
     monthlyPayment: $('monthlyPayment'), remaining: $('remaining'),
     modal: $('modal'), addDebtBtn: $('addDebtBtn'), saveDebtBtn: $('saveDebtBtn'), cancelBtn: $('cancelBtn'),
-    name: $('nameInput'), category: $('categoryInput'), amount: $('amountInput'), date: $('dateInput'),
+    name: $('nameInput'), category: $('categoryInput'), amount: $('amountInput'), date: $('dateInput'), monthlyRepeat: $('monthlyRepeatInput'),
     creditFields: $('creditFields'), installments: $('installmentInput'), monthly: $('monthlyInput'),
     otherWrap: $('otherPlanToggleWrap'), otherToggle: $('otherPlanToggle'),
     otherFields: $('otherPlanFields'), otherInstallments: $('otherInstallmentInput'), otherMonthly: $('otherMonthlyInput'),
     incomeCard: $('incomeCard'), incomeModal: $('incomeModal'), incomeInput: $('incomeInput'),
     saveIncome: $('saveIncomeBtn'), cancelIncome: $('cancelIncomeBtn'),
     detailModal: $('detailModal'), detailContent: $('detailContent'), closeDetail: $('closeDetailBtn'),
-    editModal: $('editModal'), editName: $('editNameInput'), editAmount: $('editAmountInput'), editDate: $('editDateInput'), editMonthly: $('editMonthlyInput'), editSave: $('saveEditBtn'), editCancel: $('cancelEditBtn'),
+    editModal: $('editModal'), editName: $('editNameInput'), editAmount: $('editAmountInput'), editDate: $('editDateInput'), editMonthlyRepeat: $('editMonthlyRepeatInput'), editMonthly: $('editMonthlyInput'), editSave: $('saveEditBtn'), editCancel: $('cancelEditBtn'),
     settingsModal: $('settingsModal'), closeSettings: $('closeSettingsBtn'),
     backup: $('backupBtn'), qr: $('qrBtn'), restore: $('restoreBtn'), restoreFile: $('restoreFile'), reset: $('resetBtn'),
     home: $('homeBtn'), cards: $('cardsBtn'), money: $('moneyBtn'), settings: $('settingsBtn')
@@ -159,7 +159,7 @@
     el.name.value = ''; el.amount.value = ''; el.date.value = '';
     el.installments.value = ''; el.monthly.value = '';
     el.otherInstallments.value = ''; el.otherMonthly.value = '';
-    el.otherToggle.checked = false; el.category.value = 'Kurum';
+    el.otherToggle.checked = false; el.monthlyRepeat.checked = false; el.category.value = 'Kurum';
     updateFields();
     setTimeout(() => el.name.focus(), 50);
   }
@@ -172,7 +172,7 @@
     if (!name || amount <= 0 || !date) return alert('Ad, tutar ve tarih alanlarını doldur.');
 
     if (el.category.value === 'Kurum') {
-      engine.createInstitution({institution:name, amount, date});
+      engine.createInstitution({institution:name, amount, date, monthlyRepeat:el.monthlyRepeat.checked});
     } else if (el.category.value === 'Kredi') {
       const total = Number(el.installments.value) || 1;
       const monthly = Number(el.monthly.value) || amount;
@@ -253,6 +253,7 @@
     el.editName.value = item.bank || item.institution || item.name || '';
     el.editAmount.value = Number(item.originalAmount ?? item.amount ?? item.debt ?? 0);
     el.editDate.value = item.dueDate || item.date || item.day || item.startDate || '';
+    el.editMonthlyRepeat.checked = !!item.monthlyRepeat;
     el.editMonthly.value = isPlan(item) ? Number(item.monthly || 0) : '';
     el.editMonthly.closest('.editMonthlyWrap').classList.toggle('hiddenFields', !isPlan(item));
     el.editModal.classList.remove('hidden');
@@ -283,6 +284,7 @@
       item.debt = item.amount;
       if (item.type === 'creditcard') item.bank = name; else if (item.type === 'institution') item.institution = name; else item.name = name;
       if (item.type === 'creditcard') item.dueDate = el.editDate.value; else { item.date = el.editDate.value; item.day = el.editDate.value; }
+      if (item.type === 'institution') item.monthlyRepeat = !!el.editMonthlyRepeat.checked;
       item.paid = item.amount <= 0;
       item.status = item.paid ? 'paid' : 'waiting';
     }

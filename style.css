@@ -7,7 +7,35 @@
 .detailSummary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
 .detailSummary span{background:#1e293b;padding:10px;border-radius:10px;font-size:13px}.detailSummary b{display:block;margin-top:4px;color:#fff}
 .partialSummary{display:grid;grid-template-columns:1fr;gap:8px;margin:12px 0}.partialSummary>div{display:flex;justify-content:space-between;background:#1e293b;padding:12px;border-radius:10px}.paidText{color:#22c55e}.remainingText{color:#60a5fa}
-.paymentBox{display:flex;gap:8px;margin:12px 0}.paymentBox input{flex:1}.paymentBox button{border:0;border-radius:9px;background:#22c55e;color:#07120b;font-weight:800;padding:10px 12px;cursor:pointer}
-.fullyPaid{background:#14532d;color:#bbf7d0;border-radius:10px;padding:12px;text-align:center;margin:12px 0;font-weight:800}
+.paymentBox{
+  display:flex;
+  gap:8px;
+  margin:12px 0;
+  align-items:stretch;
+}
+
+.paymentBox input{
+  flex:1;
+  min-width:0;
+  width:auto!important;
+  margin:0!important;
+  padding:12px!important;
+  color:#fff!important;
+  background:#334155!important;
+  font-size:16px!important;
+}
+
+.paymentBox button{
+  flex:0 0 145px;
+  width:auto!important;
+  margin:0!important;
+  border:0;
+  border-radius:9px;
+  background:#22c55e;
+  color:#07120b;
+  font-weight:800;
+  padding:10px 12px;
+  cursor:pointer;
+}.fullyPaid{background:#14532d;color:#bbf7d0;border-radius:10px;padding:12px;text-align:center;margin:12px 0;font-weight:800}
 .paymentHistory{margin-top:14px}.paymentHistory h3{margin:0 0 8px}.paymentHistory div{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #334155}
 .installment button{cursor:pointer}.installment:not(.isPaid) button{background:#f59e0b;color:#111}.installment.isPaid button{background:#334155;color:#fff}

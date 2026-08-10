@@ -80,10 +80,9 @@
     remove(id) { this.items = this.items.filter(x => x.id !== id); this.save(); }
     getAll() { return this.items; }
 
-    createInstitution({ institution, amount, date }) {
-      return this.add({ type:'institution', institution, amount:Number(amount), date, day:date, repeat:'monthly', paid:false });
-    }
-
+  createInstitution({ institution, amount, date, monthlyRepeat }) {
+    return this.add({ type:"institution", institution, amount:Number(amount), date, day:date, repeat:"monthly", monthlyRepeat:!!monthlyRepeat, paid:false });
+  }
     createCredit({ bank, amount, monthly, installment, firstDate }) {
       const total = Math.max(1, Number(installment) || 1);
       const monthlyAmount = Math.max(0, Number(monthly) || Number(amount) || 0);
@@ -171,41 +170,136 @@
       this.save();
     }
 
-    payPartial(id, amount) {
-      const item = this.items.find(x => x.id === id);
-      if (!item || item.installmentPlan || item.type === 'credit') return false;
-      const value = Number(amount);
-      if (!(value > 0)) return false;
-      const remaining = Number(item.amount ?? item.debt ?? item.originalAmount ?? 0);
-      const paid = Math.min(value, remaining);
-      item.paidAmount = Number(item.paidAmount || 0) + paid;
-      item.payments = Array.isArray(item.payments) ? item.payments : [];
-      item.payments.push({ amount: paid, date: isoDate(new Date()) });
-      item.amount = Math.max(0, remaining - paid);
-      if ('debt' in item) item.debt = item.amount;
-      item.paid = item.amount <= 0;
-      item.status = item.paid ? 'paid' : 'waiting';
-      this.save();
-      return true;
-    }
+payPartial(id, amount) {
+  const item = this.items.find(x => x.id === id);
+  if (!item || item.installmentPlan || item.type === 'credit') return false;
 
-    toggleCurrent(id) {
-      const item = this.items.find(x => x.id === id);
-      if (!item) return;
-      if (item.type === 'credit' || item.installmentPlan) {
-        if(item.type==='credit') this.normalizeCredit(item); else this.normalizeInstallment(item);
-        const current = item.schedule.find(s => !s.paid);
-        if (current) current.paid = true;
-        if(item.type==='credit') this.normalizeCredit(item); else this.normalizeInstallment(item);
-      } else {
-        item.paid = !item.paid;
-        if (item.paid) item.status = 'paid'; else item.status = 'waiting';
+  const value = Number(amount);
+  if (!(value > 0)) return false;
+
+  const remaining = Number(
+    item.amount ?? item.debt ?? item.originalAmount ?? 0
+  );
+
+  const paid = Math.min(value, remaining);
+
+  item.paidAmount = Number(item.paidAmount || 0) + paid;
+  item.payments = Array.isArray(item.payments) ? item.payments : [];
+  item.payments.push({
+    amount: paid,
+    date: isoDate(new Date())
+  });
+
+  item.amount = Math.max(0, remaining - paid);
+
+  if ('debt' in item) {
+    item.debt = item.amount;
+  }
+
+  item.paid = item.amount <= 0;
+  item.status = item.paid ? 'paid' : 'waiting';
+
+  if (item.paid) {
+    if (item.type === 'institution' && item.monthlyRepeat) {
+      const nextDate = addMonths(item.date || item.day, 1);
+
+      const exists = this.items.some(
+        x =>
+          x.type === 'institution' &&
+          x.institution === item.institution &&
+          x.date === nextDate &&
+          x.monthlyRepeat
+      );
+
+      if (!exists) {
+        this.add({
+          type: 'institution',
+          institution: item.institution,
+          amount: Number(item.originalAmount ?? 0),
+          date: nextDate,
+          day: nextDate,
+          repeat: 'monthly',
+          monthlyRepeat: true,
+          paid: false
+        });
       }
-      this.save();
+    }
+  }
+
+  this.save();
+  return true;
+}
+toggleCurrent(id) {
+  const item = this.items.find(x => x.id === id);
+  if (!item) return;
+
+  if (item.type === 'credit' || item.installmentPlan) {
+    if (item.type === 'credit') {
+      this.normalizeCredit(item);
+    } else {
+      this.normalizeInstallment(item);
     }
 
-    processMonthlyPayments() {
-      // No destructive automatic payment is performed. Dates are calculated from the schedule.
+    const current = item.schedule.find(s => !s.paid);
+
+    if (current) {
+      current.paid = true;
+    }
+
+    if (item.type === 'credit') {
+      this.normalizeCredit(item);
+    } else {
+      this.normalizeInstallment(item);
+    }
+  } else {
+    item.paid = !item.paid;
+
+    if (item.paid) {
+item.status = 'paid';
+item.paidAmount = Number(item.originalAmount ?? item.amount ?? 0);
+item.amount = 0;
+      if ('debt' in item) {
+        item.debt = 0;
+      }
+
+      if (item.type === 'institution' && item.monthlyRepeat) {
+        const nextDate = addMonths(item.date || item.day, 1);
+
+        const exists = this.items.some(
+          x =>
+            x.type === 'institution' &&
+            x.institution === item.institution &&
+            x.date === nextDate &&
+            x.monthlyRepeat
+        );
+
+        if (!exists) {
+          this.add({
+            type: 'institution',
+            institution: item.institution,
+            amount: Number(item.originalAmount ?? 0),
+            date: nextDate,
+            day: nextDate,
+            repeat: 'monthly',
+            monthlyRepeat: true,
+            paid: false
+          });
+        }
+      }
+    } else {
+      item.status = 'waiting';
+      item.amount = Number(item.originalAmount ?? item.amount ?? 0);
+
+      if ('debt' in item) {
+        item.debt = item.amount;
+      }
+    }
+  }
+
+this.save();
+}
+
+processMonthlyPayments() {      // No destructive automatic payment is performed. Dates are calculated from the schedule.
       this.migrate(); this.save();
     }
   }
