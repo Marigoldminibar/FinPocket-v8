@@ -60,7 +60,7 @@
       const item = {
         id: uid(), createdAt: new Date().toISOString(), paid: false, status: 'waiting', ...data
       };
-      if (!item.installmentPlan && item.type !== 'credit') {
+      if (!item.installmentPlan && item.type !== 'credit' && item.type !== 'creditcard') {
         const base = Number(item.originalAmount ?? item.amount ?? item.debt ?? 0);
         item.originalAmount = base;
         item.paidAmount = Number(item.paidAmount || 0);
@@ -107,10 +107,26 @@
       return this.add({ type:'other', name, amount:totalAmount, installmentPlan:true, monthly:monthlyAmount, totalInstallments:total, remainingInstallments:total, startDate:start, nextPayment:schedule[0]?.date||start, schedule, paid:false });
     }
 
-    createCreditCard({ bank, debt, dueDate }) {
-      return this.add({ type:'creditcard', bank, debt:Number(debt), amount:Number(debt), dueDate, paid:false });
-    }
+createCreditCard({ bank, debt, dueDate }) {
+  const amount = Math.max(0, Number(debt) || 0);
+  const due = dueDate || isoDate(new Date());
 
+  return this.add({
+    type: 'creditcard',
+    bank,
+    statementMonth: due.slice(0, 7),
+    statementAmount: amount,
+    debt: amount,
+    amount: amount,
+    paidAmount: 0,
+    remainingAmount: amount,
+    dueDate: due,
+    status: amount > 0 ? 'waiting' : 'paid',
+    paid: amount <= 0,
+    payments: [],
+    statementId: uid()
+  });
+}
     normalizeCredit(item) {
       if (item.type !== 'credit') return;
       const total = Number(item.totalInstallments || item.installment || 1);
@@ -145,7 +161,7 @@
       this.items.forEach(item => {
         if (item.type === 'credit') this.normalizeCredit(item);
         if (item.installmentPlan) this.normalizeInstallment(item);
-        if (!item.installmentPlan && item.type !== 'credit') {
+        if (!item.installmentPlan && item.type !== 'credit' && item.type !== 'creditcard') {
           const legacyRemaining = Number(item.amount ?? item.debt ?? 0);
           if (item.originalAmount == null) item.originalAmount = legacyRemaining;
           item.paidAmount = Number(item.paidAmount || 0);
@@ -169,7 +185,34 @@
       if(item.type==='credit') this.normalizeCredit(item); else this.normalizeInstallment(item);
       this.save();
     }
+createNextCreditCardStatement(item) {
+  const nextDate = addMonths(item.dueDate, 1);
+  const statementMonth = nextDate.slice(0, 7);
 
+  const exists = this.items.some(x =>
+    x.type === 'creditcard' &&
+    x.bank === item.bank &&
+    x.statementMonth === statementMonth
+  );
+
+  if (exists) return null;
+
+  return this.add({
+    type: 'creditcard',
+    bank: item.bank,
+    statementMonth,
+    statementAmount: 0,
+    debt: 0,
+    amount: 0,
+    paidAmount: 0,
+remainingAmount: 0,
+    dueDate: nextDate,
+    status: 'waiting',
+    paid: false,
+    payments: [],
+statementId: uid()
+  });
+}
 payPartial(id, amount) {
   const item = this.items.find(x => x.id === id);
   if (!item || item.installmentPlan || item.type === 'credit') return false;
@@ -199,9 +242,12 @@ payPartial(id, amount) {
   item.paid = item.amount <= 0;
   item.status = item.paid ? 'paid' : 'waiting';
 
-  if (item.paid) {
-    if (item.type === 'institution' && item.monthlyRepeat) {
-      const nextDate = addMonths(item.date || item.day, 1);
+if (item.paid) {
+  if (item.type === 'creditcard') {
+    this.createNextCreditCardStatement(item);
+  }
+
+  if (item.type === 'institution' && item.monthlyRepeat) {      const nextDate = addMonths(item.date || item.day, 1);
 
       const exists = this.items.some(
         x =>
@@ -233,6 +279,7 @@ toggleCurrent(id) {
   const item = this.items.find(x => x.id === id);
   if (!item) return;
 
+  // Kredi taksitleri
   if (item.type === 'credit' || item.installmentPlan) {
     if (item.type === 'credit') {
       this.normalizeCredit(item);
@@ -251,52 +298,98 @@ toggleCurrent(id) {
     } else {
       this.normalizeInstallment(item);
     }
-  } else {
-    item.paid = !item.paid;
 
-    if (item.paid) {
-item.status = 'paid';
-item.paidAmount = Number(item.originalAmount ?? item.amount ?? 0);
-item.amount = 0;
-      if ('debt' in item) {
-        item.debt = 0;
-      }
+    this.save();
+    return;
+  }
 
-      if (item.type === 'institution' && item.monthlyRepeat) {
-        const nextDate = addMonths(item.date || item.day, 1);
+  // Kredi kartı
+  if (item.type === 'creditcard') {
+    const total = Number(
+      item.statementAmount ??
+      item.originalAmount ??
+      item.amount ??
+      item.debt ??
+      0
+    );
 
-        const exists = this.items.some(
-          x =>
-            x.type === 'institution' &&
-            x.institution === item.institution &&
-            x.date === nextDate &&
-            x.monthlyRepeat
-        );
+    if (!item.paid) {
+      item.paid = true;
+      item.status = 'paid';
+      item.paidAmount = total;
+      item.amount = 0;
+      item.debt = 0;
+      item.remainingAmount = 0;
 
-        if (!exists) {
-          this.add({
-            type: 'institution',
-            institution: item.institution,
-            amount: Number(item.originalAmount ?? 0),
-            date: nextDate,
-            day: nextDate,
-            repeat: 'monthly',
-            monthlyRepeat: true,
-            paid: false
-          });
-        }
-      }
+      item.payments = Array.isArray(item.payments) ? item.payments : [];
+
+      item.payments.push({
+        amount: total,
+        date: isoDate(new Date())
+      });
+
+      this.createNextCreditCardStatement(item);
     } else {
+      item.paid = false;
       item.status = 'waiting';
-      item.amount = Number(item.originalAmount ?? item.amount ?? 0);
+      item.paidAmount = 0;
+      item.amount = total;
+      item.debt = total;
+      item.remainingAmount = total;
+    }
 
-      if ('debt' in item) {
-        item.debt = item.amount;
+    this.save();
+    return;
+  }
+
+  // Normal borçlar
+  item.paid = !item.paid;
+
+  if (item.paid) {
+    item.status = 'paid';
+    item.paidAmount = Number(
+      item.originalAmount ?? item.amount ?? item.debt ?? 0
+    );
+    item.amount = 0;
+
+    if ('debt' in item) {
+      item.debt = 0;
+    }
+
+    if (item.type === 'institution' && item.monthlyRepeat) {
+      const nextDate = addMonths(item.date || item.day, 1);
+
+      const exists = this.items.some(
+        x =>
+          x.type === 'institution' &&
+          x.institution === item.institution &&
+          x.date === nextDate &&
+          x.monthlyRepeat
+      );
+
+      if (!exists) {
+        this.add({
+          type: 'institution',
+          institution: item.institution,
+          amount: Number(item.originalAmount ?? 0),
+          date: nextDate,
+          day: nextDate,
+          repeat: 'monthly',
+          monthlyRepeat: true,
+          paid: false
+        });
       }
+    }
+  } else {
+    item.status = 'waiting';
+    item.amount = Number(item.originalAmount ?? item.amount ?? 0);
+
+    if ('debt' in item) {
+      item.debt = item.amount;
     }
   }
 
-this.save();
+  this.save();
 }
 
 processMonthlyPayments() {      // No destructive automatic payment is performed. Dates are calculated from the schedule.

@@ -56,11 +56,19 @@
   function isPlan(item) {
     return (item.type === 'credit' || item.installmentPlan) && Array.isArray(item.schedule);
   }
-  function debtAmount(item) {
-    if (isPlan(item)) return item.schedule.filter(x => !x.paid).reduce((s,x) => s + Number(x.amount || 0), 0);
-    return Number(item.amount ?? item.debt ?? 0);
+function debtAmount(item) {
+  if (isPlan(item)) {
+    return item.schedule
+      .filter(x => !x.paid)
+      .reduce((s, x) => s + Number(x.amount || 0), 0);
   }
-  function monthPayment(item, year, month) {
+
+  if (item.type === 'creditcard') {
+    return Number(item.remainingAmount ?? item.amount ?? item.debt ?? 0);
+  }
+
+  return Number(item.amount ?? item.debt ?? 0);
+}  function monthPayment(item, year, month) {
     if (isPlan(item)) {
       return item.schedule.reduce((sum, s) => {
         if (s.paid || !s.date) return sum;
