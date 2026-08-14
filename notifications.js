@@ -38,7 +38,11 @@ const Notifications = {
 
             if (!dateString) return;
 
-            const paymentDate = new Date(dateString);
+            const paymentDate = new Date(
+                String(dateString).includes('-')
+                    ? dateString + 'T12:00:00'
+                    : dateString
+            );
 
             if (Number.isNaN(paymentDate.getTime())) return;
 
@@ -73,14 +77,24 @@ const Notifications = {
         };
     },
 
-    browserPermission() {
+    // Bildirim iznini yalnızca kullanıcı istediğinde çağıracağız.
+    requestPermission() {
 
-        if (!('Notification' in window)) return;
-
-        if (Notification.permission === 'default') {
-            Notification.requestPermission();
+        if (!('Notification' in window)) {
+            console.log('Tarayıcı bildirimleri desteklemiyor.');
+            return Promise.resolve('unsupported');
         }
 
+        if (Notification.permission === 'granted') {
+            return Promise.resolve('granted');
+        }
+
+        if (Notification.permission === 'denied') {
+            console.log('Bildirim izni engellenmiş.');
+            return Promise.resolve('denied');
+        }
+
+        return Notification.requestPermission();
     },
 
     send(title, body) {
@@ -98,7 +112,9 @@ const Notifications = {
 
     run() {
 
-        this.browserPermission();
+        // ÖNEMLİ:
+        // Burada artık bildirim izni İSTENMİYOR.
+        // Uygulama açılışında popup çıkmayacak.
 
         const result = this.check();
 
@@ -122,7 +138,10 @@ const Notifications = {
 
         });
 
-        console.log('FinPocket Bildirim Kontrolü:', result);
+        console.log(
+            'FinPocket Bildirim Kontrolü:',
+            result
+        );
 
     }
 
@@ -130,4 +149,6 @@ const Notifications = {
 
 window.Notifications = Notifications;
 
+// Uygulama açılışında sadece kontrol yapılır.
+// Bildirim izni istenmez.
 Notifications.run();
