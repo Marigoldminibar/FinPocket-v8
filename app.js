@@ -85,14 +85,107 @@ function debtAmount(item) {
 
   function renderSummary() {
     debts = engine.getAll();
-    const now = new Date(), y = now.getFullYear(), m = now.getMonth();
-    const totalDebt = debts.reduce((s,i) => s + debtAmount(i), 0);
-    const monthly = debts.reduce((s,i) => s + monthPayment(i,y,m), 0);
-    el.totalDebt.textContent = '₺ ' + money(totalDebt);
-    el.totalIncome.textContent = '₺ ' + money(totalIncome);
-    el.monthlyPayment.textContent = '₺ ' + money(monthly);
-    el.remaining.textContent = '₺ ' + money(totalIncome - monthly);
-  }
+
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+
+    let totalDebt = 0;
+    let monthly = 0;
+    let paidThisMonth = 0;
+    let overdueCount = 0;
+    let upcomingCount = 0;
+
+    debts.forEach(item => {
+
+        totalDebt += debtAmount(item);
+
+        if (isPlan(item)) {
+
+            item.schedule.forEach(s => {
+
+                if (!s.date) return;
+
+                const d = new Date(s.date + 'T12:00:00');
+
+                if (
+                    d.getFullYear() === y &&
+                    d.getMonth() === m
+                ) {
+
+                    const amount = Number(s.amount || 0);
+
+                    if (s.paid) {
+                        paidThisMonth += amount;
+                    } else {
+                        monthly += amount;
+
+                        if (d < new Date(y, m, now.getDate())) {
+                            overdueCount++;
+                        } else {
+                            upcomingCount++;
+                        }
+                    }
+                }
+            });
+
+        } else {
+
+            if (item.paid) return;
+
+            const raw =
+                item.dueDate ||
+                item.date ||
+                item.day;
+
+            if (!raw) return;
+
+            const d = new Date(
+                String(raw).includes('-')
+                    ? raw + 'T12:00:00'
+                    : raw
+            );
+
+            if (Number.isNaN(d.getTime())) return;
+
+            if (
+                d.getFullYear() === y &&
+                d.getMonth() === m
+            ) {
+
+                const amount = debtAmount(item);
+
+                monthly += amount;
+
+                if (d < new Date(y, m, now.getDate())) {
+                    overdueCount++;
+                } else {
+                    upcomingCount++;
+                }
+            }
+        }
+    });
+
+    el.totalDebt.textContent =
+        '₺ ' + money(totalDebt);
+
+    el.totalIncome.textContent =
+        '₺ ' + money(totalIncome);
+
+    el.monthlyPayment.textContent =
+        '₺ ' + money(monthly);
+
+    el.remaining.textContent =
+        '₺ ' + money(totalIncome - monthly);
+
+    console.log('FinPocket Dashboard:', {
+        totalDebt,
+        monthly,
+        paidThisMonth,
+        overdueCount,
+        upcomingCount
+    });
+}
 
   function typeLabel(item) {
     if (item.type === 'institution') return '🏢 Kurum';
