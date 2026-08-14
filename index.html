@@ -20,4 +20,7 @@
 <div id="settingsModal" class="modal hidden"><div class="modalBox"><button class="closeTop" id="closeSettingsBtn">✕</button><h2>⚙️ Ayarlar</h2><button id="backupBtn" class="settingBtn">📦 Yedekle</button><button id="qrBtn" class="settingBtn">📱 Yönetici QR Oluştur</button><button id="restoreBtn" class="settingBtn">📥 Yedekten Geri Yükle</button><input id="restoreFile" type="file" accept="application/json,.json,.backup" hidden><hr><button id="resetBtn" class="dangerBtn">🗑️ Programı Sıfırla</button></div></div>
 
 <div id="editModal" class="modal hidden"><div class="modalBox"><button class="closeTop" id="cancelEditBtn">✕</button><h2>✏️ Borcu Düzenle</h2><input id="editNameInput" placeholder="Borç / Kurum Adı"><input id="editAmountInput" type="number" min="0" step="0.01" placeholder="Toplam Tutar"><label>Tarih</label><input id="editDateInput" type="date"><label class="toggleRow"><input id="editMonthlyRepeatInput" type="checkbox"> Her ay tekrarla</label><div class="editMonthlyWrap"><input id="editMonthlyInput" type="number" min="0" step="0.01" placeholder="Aylık Taksit"></div><button id="saveEditBtn">Kaydet</button><button id="cancelEditBtn2">İptal</button></div></div>
-<script src="storage.js"></script><script src="engine.js"></script><script src="app.js"></script></body></html>
+<script src="storage.js"></script>
+<script src="engine.js"></script>
+<script src="notifications.js"></script>
+<script src="app.js"></script></body></html>

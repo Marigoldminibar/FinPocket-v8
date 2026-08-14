@@ -1,6 +1,6 @@
 // ===========================
-// notifications.js
 // FinPocket v2.0
+// Bildirim Sistemi
 // ===========================
 
 const Notifications = {
@@ -8,27 +8,28 @@ const Notifications = {
     check() {
 
         const today = new Date();
-
         const items = Engine.getAll();
 
-        let todayList = [];
-        let tomorrowList = [];
-        let overdueList = [];
+        const todayList = [];
+        const tomorrowList = [];
+        const overdueList = [];
 
         items.forEach(item => {
 
             if (item.paid) return;
 
-            const value =
+            const value = Number(
                 item.amount ||
                 item.debt ||
                 item.installment ||
-                0;
+                0
+            );
 
             const title =
                 item.bank ||
                 item.institution ||
-                item.name;
+                item.name ||
+                'Borç';
 
             const dateString =
                 item.nextPayment ||
@@ -39,82 +40,58 @@ const Notifications = {
 
             const paymentDate = new Date(dateString);
 
-            const diff = Math.floor(
-                (paymentDate - today) / 86400000
+            if (Number.isNaN(paymentDate.getTime())) return;
+
+            paymentDate.setHours(0, 0, 0, 0);
+
+            const compareToday = new Date(today);
+            compareToday.setHours(0, 0, 0, 0);
+
+            const diff = Math.round(
+                (paymentDate - compareToday) / 86400000
             );
 
+            const data = {
+                title,
+                value
+            };
+
             if (diff < 0) {
-
-                overdueList.push({
-
-                    title,
-
-                    value
-
-                });
-
-            }
-
-            else if (diff === 0) {
-
-                todayList.push({
-
-                    title,
-
-                    value
-
-                });
-
-            }
-
-            else if (diff === 1) {
-
-                tomorrowList.push({
-
-                    title,
-
-                    value
-
-                });
-
+                overdueList.push(data);
+            } else if (diff === 0) {
+                todayList.push(data);
+            } else if (diff === 1) {
+                tomorrowList.push(data);
             }
 
         });
 
-        console.clear();
-
-        console.log("====== FinPocket ======");
-
-        console.log("Bugün :", todayList);
-
-        console.log("Yarın :", tomorrowList);
-
-        console.log("Geciken :", overdueList);
-
+        return {
+            today: todayList,
+            tomorrow: tomorrowList,
+            overdue: overdueList
+        };
     },
 
     browserPermission() {
 
-        if (!("Notification" in window)) return;
+        if (!('Notification' in window)) return;
 
-        if (Notification.permission === "default") {
-
+        if (Notification.permission === 'default') {
             Notification.requestPermission();
-
         }
 
     },
 
     send(title, body) {
 
-        if (Notification.permission !== "granted") return;
+        if (!('Notification' in window)) return;
+
+        if (Notification.permission !== 'granted') return;
 
         new Notification(title, {
-
             body,
-
-            icon: "icon-192.png"
-
+            icon: './icons/icon-192.png'
         });
 
     },
@@ -123,49 +100,34 @@ const Notifications = {
 
         this.browserPermission();
 
-        const today = new Date();
+        const result = this.check();
 
-        Engine.getAll().forEach(item => {
+        // Bugün ödeme varsa bildirim
+        result.today.forEach(item => {
 
-            if (item.paid) return;
-
-            const date =
-                item.nextPayment ||
-                item.dueDate ||
-                item.day;
-
-            if (!date) return;
-
-            const diff = Math.floor(
-
-                (new Date(date) - today) /
-
-                86400000
-
+            this.send(
+                '💳 Bugün ödeme var',
+                `${item.title} ödeme günü.`
             );
 
-            if (diff === 0) {
+        });
 
-                this.send(
+        // Geciken ödeme varsa bildirim
+        result.overdue.forEach(item => {
 
-                    "Bugün ödeme var",
-
-                    (item.bank ||
-
-                        item.institution ||
-
-                        item.name) +
-
-                    " ödeme günü."
-
-                );
-
-            }
+            this.send(
+                '⚠️ Geciken ödeme',
+                `${item.title} ödemesi gecikmiş.`
+            );
 
         });
+
+        console.log('FinPocket Bildirim Kontrolü:', result);
 
     }
 
 };
+
+window.Notifications = Notifications;
 
 Notifications.run();
