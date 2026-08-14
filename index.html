@@ -1,26 +1,394 @@
-<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><meta name="theme-color" content="#0f172a"><title>FinPocket • Stable</title><link rel="stylesheet" href="style.css"><link rel="manifest" href="manifest.json"></head><body>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
+<meta name="description" content="FinPocket kişisel finans yöneticisi">
+<title>FinPocket • Kişisel Finans</title>
+
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+</head>
+
+<body>
+
 <div class="app">
-<header class="header"><h1>💰 FinPocket</h1><p>Kişisel Finans Yöneticisi</p></header>
+
+<header class="header">
+    <div class="brandIcon">₺</div>
+    <div>
+        <h1>FinPocket</h1>
+        <p>Kişisel Finans Yöneticisi</p>
+    </div>
+</header>
+
 <section class="summary">
- <div class="card debt"><span>Toplam Borç</span><h2 id="totalDebt">₺ 0,00</h2></div>
- <div class="card income" id="incomeCard"><span>Gelir</span><h2 id="totalIncome">₺ 0,00</h2></div>
- <div class="card monthly"><span>Bu Ay Toplam Ödeme</span><h2 id="monthlyPayment">₺ 0,00</h2></div><div class="card remain"><span>Ödeme Sonrası Kalan</span><h2 id="remaining">₺ 0,00</h2></div>
+
+    <div class="card debt">
+        <span>Toplam Borç</span>
+        <h2 id="totalDebt">₺ 0,00</h2>
+        <small>Ödenmemiş toplam</small>
+    </div>
+
+    <div class="card income" id="incomeCard">
+        <span>Aylık Gelir</span>
+        <h2 id="totalIncome">₺ 0,00</h2>
+        <small>Geliri düzenlemek için dokun</small>
+    </div>
+
+    <div class="card monthly">
+        <span>Bu Ay Toplam Ödeme</span>
+        <h2 id="monthlyPayment">₺ 0,00</h2>
+        <small>Bu ay ödenecek</small>
+    </div>
+
+    <div class="card remain">
+        <span>Ödeme Sonrası Kalan</span>
+        <h2 id="remaining">₺ 0,00</h2>
+        <small>Aylık gelirden sonra</small>
+    </div>
+
 </section>
-<section class="actions"><button id="addDebtBtn">➕ Yeni Borç</button></section>
-<section class="list"><div class="listTitle"><h3>Borçlar</h3><span>Dokun → detay</span></div><div id="debtList"></div></section>
-<nav class="bottomMenu"><button id="homeBtn">🏠<small>Ana Sayfa</small></button><button id="cardsBtn">💳<small>Borçlar</small></button><button id="moneyBtn">💰<small>Gelir</small></button><button id="settingsBtn">⚙️<small>Ayarlar</small></button></nav>
+
+<section class="actions">
+    <button id="addDebtBtn">＋ Yeni Borç Ekle</button>
+</section>
+
+<section class="list">
+
+    <div class="listTitle">
+        <div>
+            <h3>Borçlarım</h3>
+            <span>Ödemelerini buradan takip et</span>
+        </div>
+
+        <span>Dokun → detay</span>
+    </div>
+
+    <div id="debtList"></div>
+
+</section>
+
+<nav class="bottomMenu">
+
+    <button id="homeBtn">
+        🏠
+        <small>Ana Sayfa</small>
+    </button>
+
+    <button id="cardsBtn">
+        💳
+        <small>Borçlar</small>
+    </button>
+
+    <button id="moneyBtn">
+        💰
+        <small>Gelir</small>
+    </button>
+
+    <button id="settingsBtn">
+        ⚙️
+        <small>Ayarlar</small>
+    </button>
+
+</nav>
+
 </div>
 
-<div id="modal" class="modal hidden"><div class="modalBox"><h2>Yeni Borç</h2><input id="nameInput" placeholder="Borç / Kurum Adı"><select id="categoryInput"><option>Kurum</option><option>Kredi</option><option>Kredi Kartı</option><option>Diğer</option></select><input id="amountInput" type="number" min="0" step="0.01" placeholder="Tutar"><label>İlk / Son Ödeme Tarihi</label><input id="dateInput" type="date"><label class="toggleRow"><input id="monthlyRepeatInput" type="checkbox"> Her ay tekrarla</label><div id="creditFields" class="hiddenFields"><input id="installmentInput" type="number" min="1" placeholder="Toplam Taksit"><input id="monthlyInput" type="number" min="0" step="0.01" placeholder="Aylık Taksit"></div><div id="otherPlanToggleWrap" class="hiddenFields"><label class="toggleRow"><input id="otherPlanToggle" type="checkbox"> Taksitli ödeme</label></div><div id="otherPlanFields" class="hiddenFields"><div class="planFields"><input id="otherInstallmentInput" type="number" min="1" placeholder="Toplam Taksit"><input id="otherMonthlyInput" type="number" min="0" step="0.01" placeholder="Aylık Taksit (isteğe bağlı)"></div></div><button id="saveDebtBtn">Kaydet</button><button id="cancelBtn">İptal</button></div></div>
 
-<div id="incomeModal" class="modal hidden"><div class="modalBox"><h2>💰 Aylık Gelir</h2><input id="incomeInput" type="number" min="0" step="0.01" placeholder="Aylık gelir"><button id="saveIncomeBtn">Kaydet</button><button id="cancelIncomeBtn">İptal</button></div></div>
+<!-- YENİ BORÇ -->
 
-<div id="detailModal" class="modal hidden"><div class="modalBox detailBox"><button class="closeTop" id="closeDetailBtn">✕</button><div id="detailContent"></div></div></div>
+<div id="modal" class="modal hidden">
 
-<div id="settingsModal" class="modal hidden"><div class="modalBox"><button class="closeTop" id="closeSettingsBtn">✕</button><h2>⚙️ Ayarlar</h2><button id="backupBtn" class="settingBtn">📦 Yedekle</button><button id="qrBtn" class="settingBtn">📱 Yönetici QR Oluştur</button><button id="restoreBtn" class="settingBtn">📥 Yedekten Geri Yükle</button><input id="restoreFile" type="file" accept="application/json,.json,.backup" hidden><hr><button id="resetBtn" class="dangerBtn">🗑️ Programı Sıfırla</button></div></div>
+<div class="modalBox">
 
-<div id="editModal" class="modal hidden"><div class="modalBox"><button class="closeTop" id="cancelEditBtn">✕</button><h2>✏️ Borcu Düzenle</h2><input id="editNameInput" placeholder="Borç / Kurum Adı"><input id="editAmountInput" type="number" min="0" step="0.01" placeholder="Toplam Tutar"><label>Tarih</label><input id="editDateInput" type="date"><label class="toggleRow"><input id="editMonthlyRepeatInput" type="checkbox"> Her ay tekrarla</label><div class="editMonthlyWrap"><input id="editMonthlyInput" type="number" min="0" step="0.01" placeholder="Aylık Taksit"></div><button id="saveEditBtn">Kaydet</button><button id="cancelEditBtn2">İptal</button></div></div>
+    <h2>Yeni Borç</h2>
+
+    <input
+        id="nameInput"
+        placeholder="Borç / Kurum Adı"
+        autocomplete="off"
+    >
+
+    <select id="categoryInput">
+        <option>Kurum</option>
+        <option>Kredi</option>
+        <option>Kredi Kartı</option>
+        <option>Diğer</option>
+    </select>
+
+    <input
+        id="amountInput"
+        type="number"
+        min="0"
+        step="0.01"
+        placeholder="Tutar"
+    >
+
+    <label>İlk / Son Ödeme Tarihi</label>
+
+    <input
+        id="dateInput"
+        type="date"
+    >
+
+    <label class="toggleRow">
+        <input
+            id="monthlyRepeatInput"
+            type="checkbox"
+        >
+        Her ay tekrarla
+    </label>
+
+    <div id="creditFields" class="hiddenFields">
+
+        <input
+            id="installmentInput"
+            type="number"
+            min="1"
+            placeholder="Toplam Taksit"
+        >
+
+        <input
+            id="monthlyInput"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Aylık Taksit"
+        >
+
+    </div>
+
+    <div id="otherPlanToggleWrap" class="hiddenFields">
+
+        <label class="toggleRow">
+            <input
+                id="otherPlanToggle"
+                type="checkbox"
+            >
+            Taksitli ödeme
+        </label>
+
+    </div>
+
+    <div id="otherPlanFields" class="hiddenFields">
+
+        <div class="planFields">
+
+            <input
+                id="otherInstallmentInput"
+                type="number"
+                min="1"
+                placeholder="Toplam Taksit"
+            >
+
+            <input
+                id="otherMonthlyInput"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Aylık Taksit"
+            >
+
+        </div>
+
+    </div>
+
+    <button id="saveDebtBtn">
+        Kaydet
+    </button>
+
+    <button id="cancelBtn">
+        İptal
+    </button>
+
+</div>
+
+</div>
+
+
+<!-- GELİR -->
+
+<div id="incomeModal" class="modal hidden">
+
+<div class="modalBox">
+
+    <h2>💰 Aylık Gelir</h2>
+
+    <input
+        id="incomeInput"
+        type="number"
+        min="0"
+        step="0.01"
+        placeholder="Aylık gelir"
+    >
+
+    <button id="saveIncomeBtn">
+        Kaydet
+    </button>
+
+    <button id="cancelIncomeBtn">
+        İptal
+    </button>
+
+</div>
+
+</div>
+
+
+<!-- DETAY -->
+
+<div id="detailModal" class="modal hidden">
+
+<div class="modalBox detailBox">
+
+    <button
+        class="closeTop"
+        id="closeDetailBtn"
+    >
+        ✕
+    </button>
+
+    <div id="detailContent"></div>
+
+</div>
+
+</div>
+
+
+<!-- AYARLAR -->
+
+<div id="settingsModal" class="modal hidden">
+
+<div class="modalBox">
+
+    <button
+        class="closeTop"
+        id="closeSettingsBtn"
+    >
+        ✕
+    </button>
+
+    <h2>⚙️ Ayarlar</h2>
+
+    <button
+        id="backupBtn"
+        class="settingBtn"
+    >
+        📦 Yedekle
+    </button>
+
+    <button
+        id="qrBtn"
+        class="settingBtn"
+    >
+        📱 Yönetici QR Oluştur
+    </button>
+
+    <button
+        id="restoreBtn"
+        class="settingBtn"
+    >
+        📥 Yedekten Geri Yükle
+    </button>
+
+    <input
+        id="restoreFile"
+        type="file"
+        accept="application/json,.json,.backup"
+        hidden
+    >
+
+    <hr>
+
+    <button
+        id="resetBtn"
+        class="dangerBtn"
+    >
+        🗑️ Programı Sıfırla
+    </button>
+
+</div>
+
+</div>
+
+
+<!-- BORÇ DÜZENLE -->
+
+<div id="editModal" class="modal hidden">
+
+<div class="modalBox">
+
+    <button
+        class="closeTop"
+        id="cancelEditBtn"
+    >
+        ✕
+    </button>
+
+    <h2>✏️ Borcu Düzenle</h2>
+
+    <input
+        id="editNameInput"
+        placeholder="Borç / Kurum Adı"
+    >
+
+    <input
+        id="editAmountInput"
+        type="number"
+        min="0"
+        step="0.01"
+        placeholder="Toplam Tutar"
+    >
+
+    <label>Tarih</label>
+
+    <input
+        id="editDateInput"
+        type="date"
+    >
+
+    <label class="toggleRow">
+
+        <input
+            id="editMonthlyRepeatInput"
+            type="checkbox"
+        >
+
+        Her ay tekrarla
+
+    </label>
+
+    <div class="editMonthlyWrap">
+
+        <input
+            id="editMonthlyInput"
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Aylık Taksit"
+        >
+
+    </div>
+
+    <button id="saveEditBtn">
+        Kaydet
+    </button>
+
+    <button id="cancelEditBtn2">
+        İptal
+    </button>
+
+</div>
+
+</div>
+
+
 <script src="storage.js"></script>
 <script src="engine.js"></script>
 <script src="notifications.js"></script>
-<script src="app.js"></script></body></html>
+<script src="app.js"></script>
+
+</body>
+</html>
