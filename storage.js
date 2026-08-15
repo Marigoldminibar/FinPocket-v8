@@ -6,6 +6,31 @@
 const DEVICE_ID_KEY = 'fp_device_id';
 const DEVICE_ID = localStorage.getItem(DEVICE_ID_KEY) || (() => { const id = (crypto && crypto.randomUUID) ? crypto.randomUUID() : 'device_' + Date.now() + '_' + Math.random().toString(36).slice(2); localStorage.setItem(DEVICE_ID_KEY,id); return id; })();
 
+function safeJSONParse(value, fallback = null) {
+    try {
+        return value ? JSON.parse(value) : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function safeStorageGet(key, fallback = null) {
+    try {
+        return localStorage.getItem(key) ?? fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function safeStorageSet(key, value) {
+    try {
+        localStorage.setItem(key, value);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 const Storage = {
 
     keys: {
