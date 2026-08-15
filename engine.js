@@ -50,12 +50,12 @@
     }
 
     read() {
-      try { return JSON.parse(localStorage.getItem(KEY)) || []; }
-      catch { return []; }
-    }
+  return Storage.loadDebts();
+}
 
-    save() { localStorage.setItem(KEY, JSON.stringify(this.items)); }
-
+save() {
+  return Storage.saveDebts(this.items);
+}
     add(data) {
       const item = {
         id: uid(), createdAt: new Date().toISOString(), paid: false, status: 'waiting', ...data
