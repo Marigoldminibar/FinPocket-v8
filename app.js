@@ -19,7 +19,7 @@
     return;
   }
 
-  let totalIncome = Number(localStorage.getItem(INCOME_KEY) || 0);
+  let totalIncome = Storage.loadIncome();
   let debts = engine.getAll();
 
   const el = {
@@ -51,8 +51,8 @@
     return String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
   }
   function saveIncome() {
-    localStorage.setItem(INCOME_KEY, String(totalIncome));
-  }
+  return Storage.saveIncome(totalIncome);
+}
   function isPlan(item) {
     return (item.type === 'credit' || item.installmentPlan) && Array.isArray(item.schedule);
   }
