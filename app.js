@@ -10,9 +10,8 @@
       ? crypto.randomUUID()
       : 'device_' + Date.now() + '_' + Math.random().toString(36).slice(2);
     localStorage.setItem(deviceKey, DEVICE_ID);
-  }
+    }
 
-  const INCOME_KEY = 'fp_income_' + DEVICE_ID;
   const engine = window.Engine;
   if (!engine) {
     document.body.innerHTML = '<div style="padding:30px;font-family:Arial;color:#fff;background:#0b1220"><h2>FinPocket yüklenemedi</h2><p>engine.js bulunamadı veya JavaScript çalıştırılamadı.</p></div>';
@@ -419,8 +418,9 @@ function debtAmount(item) {
     r.onload = () => {
       try {
         const d = JSON.parse(r.result);
-        localStorage.setItem('fp_engine_' + DEVICE_ID, JSON.stringify(d.debts || []));
-        totalIncome = Number(d.income || 0); saveIncome();
+        Storage.saveDebts(d.debts || []);
+totalIncome = Number(d.income || 0);
+saveIncome();
         location.reload();
       } catch (_) { alert('Yedek dosyası okunamadı.'); }
     };
@@ -429,7 +429,7 @@ function debtAmount(item) {
 
   function resetDevice() {
     if (!confirm('BU TELEFON / BİLGİSAYARDAKİ tüm FinPocket verileri silinsin mi?')) return;
-    ['fp_engine_'+DEVICE_ID, INCOME_KEY, 'fp_first_run_'+DEVICE_ID].forEach(k => localStorage.removeItem(k));
+    Storage.reset();
     location.reload();
   }
 
