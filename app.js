@@ -435,7 +435,7 @@ saveIncome();
 
   // Event delegation makes the interface work even if a button is re-rendered.
   document.addEventListener('click', e => {
-    const t = e.target.closest('button,[data-action],.debtItem');
+    const t = e.target.closest('button,[data-action],.debtItem,#incomeCard');
     if (!t) return;
     const id = t.id;
 
@@ -450,6 +450,7 @@ saveIncome();
     if (id === 'cancelIncomeBtn') return closeIncome();
     if (id === 'settingsBtn') return el.settingsModal.classList.remove('hidden');
     if (id === 'closeSettingsBtn') return el.settingsModal.classList.add('hidden');
+    if (id === 'incomeCard') return openIncome();
     if (id === 'moneyBtn') return openIncome();
     if (id === 'homeBtn') return window.scrollTo({top:0,behavior:'smooth'});
     if (id === 'cardsBtn') return document.querySelector('.list')?.scrollIntoView({behavior:'smooth'});
