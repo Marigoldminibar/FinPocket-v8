@@ -40,21 +40,18 @@ const Storage = {
     },
 
     loadDebts() {
+    return safeJSONParse(
+        safeStorageGet(this.keys.debts),
+        []
+    );
+},
 
-        return JSON.parse(
-            localStorage.getItem(this.keys.debts)
-        ) || [];
-
-    },
-
-    saveDebts(data) {
-
-        localStorage.setItem(
-            this.keys.debts,
-            JSON.stringify(data)
-        );
-
-    },
+saveDebts(data) {
+    return safeStorageSet(
+        this.keys.debts,
+        JSON.stringify(data)
+    );
+},
 
     loadIncome() {
 
