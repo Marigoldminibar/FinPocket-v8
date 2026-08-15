@@ -54,49 +54,35 @@ saveDebts(data) {
 },
 
     loadIncome() {
+    return Number(
+        safeStorageGet(this.keys.income, 0)
+    ) || 0;
+},
 
-        return Number(
-            localStorage.getItem(this.keys.income)
-        ) || 0;
-
-    },
-
-    saveIncome(value) {
-
-        localStorage.setItem(
-            this.keys.income,
-            value
-        );
-
-    },
+saveIncome(value) {
+    return safeStorageSet(
+        this.keys.income,
+        String(value)
+    );
+},
 
     loadSettings() {
+    return safeJSONParse(
+        safeStorageGet(this.keys.settings),
+        {
+            theme: "dark",
+            currency: "TRY",
+            pin: ""
+        }
+    );
+},
 
-        return JSON.parse(
-            localStorage.getItem(this.keys.settings)
-        ) || {
-
-            theme:"dark",
-
-            currency:"TRY",
-
-            pin:""
-
-        };
-
-    },
-
-    saveSettings(settings){
-
-        localStorage.setItem(
-
-            this.keys.settings,
-
-            JSON.stringify(settings)
-
-        );
-
-    },
+saveSettings(settings) {
+    return safeStorageSet(
+        this.keys.settings,
+        JSON.stringify(settings)
+    );
+},
 
     backup(){
 
