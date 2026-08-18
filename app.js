@@ -412,19 +412,36 @@ function debtAmount(item) {
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
 
-  function restore(file) {
-    const r = new FileReader();
-    r.onload = () => {
-      try {
-        const d = JSON.parse(r.result);
-        Storage.saveDebts(d.debts || []);
-totalIncome = Number(d.income || 0);
-saveIncome();
-        location.reload();
-      } catch (_) { alert('Yedek dosyası okunamadı.'); }
-    };
-    r.readAsText(file);
+function restore(file) {
+  if (!confirm('Mevcut FinPocket verileriniz yedekten gelen verilerle değiştirilecek. Devam edilsin mi?')) {
+    return;
   }
+
+  const r = new FileReader();
+
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+
+      Storage.saveDebts(d.debts || []);
+
+      totalIncome = Number(d.income || 0);
+      saveIncome();
+
+      if (d.settings) {
+        Storage.saveSettings(d.settings);
+      }
+
+      alert('Yedek başarıyla geri yüklendi.');
+      location.reload();
+
+    } catch (_) {
+      alert('Yedek dosyası okunamadı veya geçersiz.');
+    }
+  };
+
+  r.readAsText(file);
+}
 
   function resetDevice() {
     if (!confirm('BU TELEFON / BİLGİSAYARDAKİ tüm FinPocket verileri silinsin mi?')) return;
@@ -448,6 +465,18 @@ saveIncome();
     }
     if (id === 'cancelIncomeBtn') return closeIncome();
     if (id === 'settingsBtn') return el.settingsModal.classList.remove('hidden');
+    if (id === 'notificationBtn') {
+  return Notifications.requestPermission().then(result => {
+    if (result === 'granted') {
+      alert('🔔 Bildirimler açıldı.');
+      Notifications.run();
+    } else if (result === 'denied') {
+      alert('Bildirim izni engellendi. Tarayıcı ayarlarından izin verebilirsiniz.');
+    } else {
+      alert('Bu cihaz bildirimleri desteklemiyor.');
+    }
+  });
+}
     if (id === 'closeSettingsBtn') return el.settingsModal.classList.add('hidden');
     if (id === 'incomeCard') return openIncome();
     if (id === 'moneyBtn') return openIncome();

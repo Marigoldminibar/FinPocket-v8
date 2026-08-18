@@ -137,6 +137,15 @@ const Notifications = {
             );
 
         });
+        // Yarın ödeme varsa bildirim
+result.tomorrow.forEach(item => {
+
+    this.send(
+        '📅 Yarın ödeme var',
+        `${item.title} için yarın ödeme günü.`
+    );
+
+});
 
         console.log(
             'FinPocket Bildirim Kontrolü:',
