@@ -34,8 +34,7 @@
     detailModal: $('detailModal'), detailContent: $('detailContent'), closeDetail: $('closeDetailBtn'),
     editModal: $('editModal'), editName: $('editNameInput'), editAmount: $('editAmountInput'), editDate: $('editDateInput'), editMonthlyRepeat: $('editMonthlyRepeatInput'), editMonthly: $('editMonthlyInput'), editSave: $('saveEditBtn'), editCancel: $('cancelEditBtn'),
     settingsModal: $('settingsModal'), closeSettings: $('closeSettingsBtn'),
-    backup: $('backupBtn'), qr: $('qrBtn'), restore: $('restoreBtn'), restoreFile: $('restoreFile'), reset: $('resetBtn'),
-    home: $('homeBtn'), cards: $('cardsBtn'), money: $('moneyBtn'), settings: $('settingsBtn')
+backup: $('backupBtn'), report: $('reportBtn'), qr: $('qrBtn'), restore: $('restoreBtn'), restoreFile: $('restoreFile'), reset: $('resetBtn'),    home: $('homeBtn'), cards: $('cardsBtn'), money: $('moneyBtn'), settings: $('settingsBtn')
   };
 
   function money(v) {
@@ -455,6 +454,7 @@ saveIncome();
     if (id === 'homeBtn') return window.scrollTo({top:0,behavior:'smooth'});
     if (id === 'cardsBtn') return document.querySelector('.list')?.scrollIntoView({behavior:'smooth'});
     if (id === 'backupBtn') return backup();
+    if (id === 'reportBtn') return generateExcelReport();
     if (id === 'restoreBtn') return el.restoreFile.click();
     if (id === 'resetBtn') return resetDevice();
     if (id === 'qrBtn') return window.location.href = './qr.html';
@@ -495,3 +495,781 @@ saveIncome();
     navigator.serviceWorker.register('./service-worker.js').catch(() => {});
   }
 })();
+
+function generateExcelReport() {
+  if (typeof XLSX === 'undefined') {
+    alert('Excel rapor sistemi yüklenemedi.');
+    return;
+  }
+
+  const data = window.Engine.getAll();
+  const income = Number(Storage.loadIncome() || 0);
+
+  let paidInstallments = 0;
+  let pendingInstallments = 0;
+  let pendingDebts = 0;
+
+  let totalDebt = 0;
+  let totalPaid = 0;
+  let monthlyPayment = 0;
+
+  const debtRows = [];
+  const paymentRows = [];
+  const installmentRows = [];
+
+  // =========================================================
+  // VERİLERİ HAZIRLA
+  // =========================================================
+
+  data.forEach(item => {
+    const name =
+      item.institution ||
+      item.bank ||
+      item.name ||
+      '-';
+
+    const original = Number(
+      item.originalAmount ??
+      item.statementAmount ??
+      item.amount ??
+      item.debt ??
+      0
+    );
+
+let remaining = Number(
+  item.remainingAmount ??
+  item.amount ??
+  item.debt ??
+  0
+);
+
+// Taksitli borçlarda kalan tutar,
+// sadece ödenmemiş taksitlerin toplamıdır.
+if (Array.isArray(item.schedule)) {
+  remaining = item.schedule
+    .filter(s => !s.paid)
+    .reduce((sum, s) => sum + Number(s.amount || 0), 0);
+}
+
+    const paid = Number(item.paidAmount || 0);
+
+    totalDebt += remaining;
+    totalPaid += paid;
+
+    if (!item.paid && remaining > 0) {
+      pendingDebts++;
+    }
+
+    // -------------------------
+    // BORÇLAR
+    // -------------------------
+
+    debtRows.push({
+      'Borç / Kurum': name,
+      'Tür': item.type || '-',
+      'İlk Tutar': original,
+      'Ödenen': paid,
+      'Kalan': remaining,
+      'Son Ödeme':
+        item.dueDate ||
+        item.nextPayment ||
+        item.date ||
+        '-',
+      'Durum': item.paid ? 'Ödendi' : 'Bekliyor'
+    });
+
+    // -------------------------
+    // ÖDEMELER
+    // -------------------------
+
+    if (Array.isArray(item.payments)) {
+      item.payments.forEach(payment => {
+        paymentRows.push({
+          'Borç / Kurum': name,
+          'Tarih': payment.date || '-',
+          'Ödeme Tutarı': Number(payment.amount || 0)
+        });
+      });
+    }
+
+    // -------------------------
+    // TAKSİTLER
+    // -------------------------
+
+    if (Array.isArray(item.schedule)) {
+      item.schedule.forEach(schedule => {
+        if (schedule.paid) {
+          paidInstallments++;
+        } else {
+          pendingInstallments++;
+        }
+
+        const amount = Number(schedule.amount || 0);
+
+if (!schedule.paid) {
+  const scheduleDate = new Date(schedule.date + 'T12:00:00');
+
+  if (
+    scheduleDate.getFullYear() === new Date().getFullYear() &&
+    scheduleDate.getMonth() === new Date().getMonth()
+  ) {
+    monthlyPayment += amount;
+  }
+}
+
+        installmentRows.push({
+          'Borç / Kurum': name,
+          'Taksit No': schedule.no,
+          'Tarih': schedule.date || '-',
+          'Tutar': amount,
+          'Durum': schedule.paid
+            ? 'Ödendi'
+            : 'Bekliyor'
+        });
+      });
+    }
+
+    // -------------------------
+    // AYLIK TEKRAR
+    // -------------------------
+
+if (
+  item.type === 'creditcard' &&
+  !item.paid
+) {
+  const dueDate = item.dueDate
+    ? new Date(item.dueDate + 'T12:00:00')
+    : null;
+
+  const now = new Date();
+
+  if (
+    dueDate &&
+    dueDate.getFullYear() === now.getFullYear() &&
+    dueDate.getMonth() === now.getMonth()
+  ) {
+    monthlyPayment += remaining;
+  }
+}
+
+    // -------------------------
+    // KREDİ KARTI
+    // -------------------------
+
+    if (
+      item.type === 'creditcard' &&
+      !item.paid
+    ) {
+      monthlyPayment += remaining;
+    }
+  });
+
+  const remainingIncome =
+    income - monthlyPayment;
+
+  // =========================================================
+  // ÖZET VERİSİ
+  // =========================================================
+
+  const summaryRows = [
+    ['FinPocket Finans Raporu', ''],
+    ['Rapor Tarihi', new Date().toLocaleString('tr-TR')],
+    ['', ''],
+
+    ['GENEL ÖZET', ''],
+    ['Aylık Gelir', income],
+    ['Toplam Kalan Borç', totalDebt],
+    ['Toplam Ödenen', totalPaid],
+    ['Bu Ay Ödenecek', monthlyPayment],
+    ['Ödeme Sonrası Kalan', remainingIncome],
+
+    ['', ''],
+
+    ['RAPOR İÇERİĞİ', ''],
+    ['Toplam Borç Kaydı', `${debtRows.length} adet`],
+    ['Gerçekleşen Ödemeler', `${paymentRows.length} adet`],
+    ['Toplam Taksit', `${installmentRows.length} adet`],
+    ['Bekleyen Borç', `${pendingDebts} adet`],
+    ['Ödenen Taksit', `${paidInstallments} adet`],
+    ['Bekleyen Taksit', `${pendingInstallments} adet`]
+  ];
+
+  // =========================================================
+  // EXCEL DOSYASINI OLUŞTUR
+  // =========================================================
+
+  const wb = XLSX.utils.book_new();
+
+  const wsSummary =
+    XLSX.utils.aoa_to_sheet(summaryRows);
+
+  const wsDebts =
+    XLSX.utils.json_to_sheet(debtRows);
+
+  const wsPayments =
+    XLSX.utils.json_to_sheet(paymentRows);
+
+  const wsInstallments =
+    XLSX.utils.json_to_sheet(installmentRows);
+
+  XLSX.utils.book_append_sheet(
+    wb,
+    wsSummary,
+    'Özet'
+  );
+
+  XLSX.utils.book_append_sheet(
+    wb,
+    wsDebts,
+    'Borçlar'
+  );
+
+  XLSX.utils.book_append_sheet(
+    wb,
+    wsPayments,
+    'Ödemeler'
+  );
+
+  XLSX.utils.book_append_sheet(
+    wb,
+    wsInstallments,
+    'Taksitler'
+  );
+
+  // =========================================================
+  // PROFESYONEL STİLLER
+  // =========================================================
+
+  const border = {
+    top: {
+      style: 'thin',
+      color: { rgb: 'D9E1F2' }
+    },
+    bottom: {
+      style: 'thin',
+      color: { rgb: 'D9E1F2' }
+    },
+    left: {
+      style: 'thin',
+      color: { rgb: 'D9E1F2' }
+    },
+    right: {
+      style: 'thin',
+      color: { rgb: 'D9E1F2' }
+    }
+  };
+
+  const titleStyle = {
+    font: {
+      name: 'Calibri',
+      sz: 18,
+      bold: true,
+      color: { rgb: 'FFFFFF' }
+    },
+    fill: {
+      fgColor: { rgb: '17365D' }
+    },
+    alignment: {
+      horizontal: 'left',
+      vertical: 'center'
+    },
+    border
+  };
+
+  const sectionStyle = {
+    font: {
+      name: 'Calibri',
+      sz: 12,
+      bold: true,
+      color: { rgb: 'FFFFFF' }
+    },
+    fill: {
+      fgColor: { rgb: '4472C4' }
+    },
+    alignment: {
+      horizontal: 'left',
+      vertical: 'center'
+    },
+    border
+  };
+
+  const labelStyle = {
+    font: {
+      name: 'Calibri',
+      sz: 11,
+      bold: true,
+      color: { rgb: '1F1F1F' }
+    },
+    fill: {
+      fgColor: { rgb: 'EAF2F8' }
+    },
+    alignment: {
+      vertical: 'center'
+    },
+    border
+  };
+
+  const valueStyle = {
+    font: {
+      name: 'Calibri',
+      sz: 11,
+      color: { rgb: '1F1F1F' }
+    },
+    alignment: {
+      horizontal: 'right',
+      vertical: 'center'
+    },
+    border
+  };
+
+  const headerStyle = {
+    font: {
+      name: 'Calibri',
+      sz: 11,
+      bold: true,
+      color: { rgb: 'FFFFFF' }
+    },
+    fill: {
+      fgColor: { rgb: '17365D' }
+    },
+    alignment: {
+      horizontal: 'center',
+      vertical: 'center',
+      wrapText: true
+    },
+    border
+  };
+
+  const normalStyle = {
+    font: {
+      name: 'Calibri',
+      sz: 10
+    },
+    alignment: {
+      vertical: 'center'
+    },
+    border
+  };
+
+  const statusPaidStyle = {
+    font: {
+      name: 'Calibri',
+      sz: 10,
+      bold: true,
+      color: { rgb: '006100' }
+    },
+    fill: {
+      fgColor: { rgb: 'C6EFCE' }
+    },
+    alignment: {
+      horizontal: 'center',
+      vertical: 'center'
+    },
+    border
+  };
+
+  const statusPendingStyle = {
+    font: {
+      name: 'Calibri',
+      sz: 10,
+      bold: true,
+      color: { rgb: '9C0006' }
+    },
+    fill: {
+      fgColor: { rgb: 'FFC7CE' }
+    },
+    alignment: {
+      horizontal: 'center',
+      vertical: 'center'
+    },
+    border
+  };
+
+  const moneyFormat =
+    '#,##0.00 [$₺-tr-TR]';
+
+  // =========================================================
+  // ÖZET SAYFASI
+  // =========================================================
+
+  wsSummary['!merges'] = [
+    {
+      s: { r: 0, c: 0 },
+      e: { r: 0, c: 1 }
+    },
+    {
+      s: { r: 3, c: 0 },
+      e: { r: 3, c: 1 }
+    },
+    {
+      s: { r: 10, c: 0 },
+      e: { r: 10, c: 1 }
+    }
+  ];
+
+  wsSummary['A1'].s = titleStyle;
+  wsSummary['A4'].s = sectionStyle;
+  wsSummary['A11'].s = sectionStyle;
+
+  // Rapor tarihi
+  if (wsSummary['B2']) {
+    wsSummary['B2'].s = {
+      font: {
+        name: 'Calibri',
+        sz: 10,
+        italic: true,
+        color: { rgb: '666666' }
+      },
+      alignment: {
+        horizontal: 'right',
+        vertical: 'center'
+      }
+    };
+  }
+
+  // Özet satırları
+  for (let r = 4; r <= 8; r++) {
+    if (wsSummary[`A${r + 1}`]) {
+      wsSummary[`A${r + 1}`].s = labelStyle;
+    }
+
+    if (wsSummary[`B${r + 1}`]) {
+      wsSummary[`B${r + 1}`].s = valueStyle;
+      wsSummary[`B${r + 1}`].z = moneyFormat;
+    }
+  }
+
+  // Rapor içeriği
+  for (let r = 11; r <= 16; r++) {
+    if (wsSummary[`A${r + 1}`]) {
+      wsSummary[`A${r + 1}`].s = labelStyle;
+    }
+
+    if (wsSummary[`B${r + 1}`]) {
+      wsSummary[`B${r + 1}`].s = {
+        ...valueStyle,
+        alignment: {
+          horizontal: 'center',
+          vertical: 'center'
+        }
+      };
+    }
+  }
+
+  // Ödeme sonrası kalan
+  if (wsSummary['B9']) {
+    wsSummary['B9'].s = {
+      ...valueStyle,
+      font: {
+        name: 'Calibri',
+        sz: 11,
+        bold: true,
+        color: remainingIncome >= 0
+          ? { rgb: '006100' }
+          : { rgb: '9C0006' }
+      },
+      fill: {
+        fgColor: remainingIncome >= 0
+          ? { rgb: 'C6EFCE' }
+          : { rgb: 'FFC7CE' }
+      }
+    };
+
+    wsSummary['B9'].z = moneyFormat;
+  }
+
+  // Genel özet para formatları
+  ['B5', 'B6', 'B7', 'B8', 'B9'].forEach(ref => {
+    if (wsSummary[ref]) {
+      wsSummary[ref].z = moneyFormat;
+    }
+  });
+
+  // Özet satır yükseklikleri
+  wsSummary['!rows'] = [];
+  wsSummary['!rows'][0] = { hpt: 30 };
+  wsSummary['!rows'][1] = { hpt: 20 };
+  wsSummary['!rows'][3] = { hpt: 23 };
+  wsSummary['!rows'][10] = { hpt: 23 };
+
+  // =========================================================
+  // TABLO SAYFALARINI STİLLE
+  // =========================================================
+
+  function styleTableSheet(ws, moneyColumns = []) {
+    const range =
+      XLSX.utils.decode_range(
+        ws['!ref'] || 'A1'
+      );
+
+    // Başlık
+    for (
+      let c = range.s.c;
+      c <= range.e.c;
+      c++
+    ) {
+      const cell =
+        ws[
+          XLSX.utils.encode_cell({
+            r: 0,
+            c
+          })
+        ];
+
+      if (cell) {
+        cell.s = headerStyle;
+      }
+    }
+
+    // Veri satırları
+    for (
+      let r = 1;
+      r <= range.e.r;
+      r++
+    ) {
+      for (
+        let c = range.s.c;
+        c <= range.e.c;
+        c++
+      ) {
+        const cell =
+          ws[
+            XLSX.utils.encode_cell({
+              r,
+              c
+            })
+          ];
+
+        if (cell) {
+          cell.s = normalStyle;
+        }
+      }
+    }
+
+    // Para sütunları
+    moneyColumns.forEach(column => {
+      for (
+        let r = 1;
+        r <= range.e.r;
+        r++
+      ) {
+        const cell =
+          ws[
+            XLSX.utils.encode_cell({
+              r,
+              c: column
+            })
+          ];
+
+        if (cell && typeof cell.v === 'number') {
+          cell.z = moneyFormat;
+          cell.s = {
+            ...normalStyle,
+            alignment: {
+              horizontal: 'right',
+              vertical: 'center'
+            }
+          };
+        }
+      }
+    });
+
+    // Durum sütunu
+    for (
+      let r = 1;
+      r <= range.e.r;
+      r++
+    ) {
+      const statusCell =
+        ws[
+          XLSX.utils.encode_cell({
+            r,
+            c: range.e.c
+          })
+        ];
+
+      if (statusCell) {
+        if (statusCell.v === 'Ödendi') {
+          statusCell.s = statusPaidStyle;
+        } else if (statusCell.v === 'Bekliyor') {
+          statusCell.s = statusPendingStyle;
+        }
+      }
+    }
+
+    // Filtre
+    if (ws['!ref']) {
+      ws['!autofilter'] = {
+        ref: ws['!ref']
+      };
+    }
+
+    // Sabit başlık
+    ws['!freeze'] = {
+      xSplit: 0,
+      ySplit: 1
+    };
+
+    // Başlık yüksekliği
+    ws['!rows'] = [];
+    ws['!rows'][0] = {
+      hpt: 25
+    };
+  }
+
+  styleTableSheet(
+    wsDebts,
+    [2, 3, 4]
+  );
+
+  styleTableSheet(
+    wsPayments,
+    [2]
+  );
+
+  styleTableSheet(
+    wsInstallments,
+    [3]
+  );
+
+  // =========================================================
+  // SÜTUN GENİŞLİKLERİ
+  // =========================================================
+
+  wsSummary['!cols'] = [
+    { wch: 28 },
+    { wch: 22 }
+  ];
+
+  wsDebts['!cols'] = [
+    { wch: 28 },
+    { wch: 18 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 16 },
+    { wch: 18 },
+    { wch: 15 }
+  ];
+
+  wsPayments['!cols'] = [
+    { wch: 28 },
+    { wch: 18 },
+    { wch: 20 }
+  ];
+
+  wsInstallments['!cols'] = [
+    { wch: 28 },
+    { wch: 12 },
+    { wch: 18 },
+    { wch: 16 },
+    { wch: 15 }
+  ];
+
+  // =========================================================
+  // TARİH SÜTUNLARI
+  // =========================================================
+
+  function formatDateColumn(ws, column) {
+    const range =
+      XLSX.utils.decode_range(
+        ws['!ref'] || 'A1'
+      );
+
+    for (
+      let r = 1;
+      r <= range.e.r;
+      r++
+    ) {
+      const cell =
+        ws[
+          XLSX.utils.encode_cell({
+            r,
+            c: column
+          })
+        ];
+
+      if (
+        cell &&
+        typeof cell.v === 'string' &&
+        cell.v !== '-'
+      ) {
+        cell.s = {
+          ...normalStyle,
+          alignment: {
+            horizontal: 'center',
+            vertical: 'center'
+          }
+        };
+      }
+    }
+  }
+
+  formatDateColumn(wsDebts, 5);
+  formatDateColumn(wsPayments, 1);
+  formatDateColumn(wsInstallments, 2);
+
+  // =========================================================
+  // ÖZET SABİT BAŞLIK
+  // =========================================================
+
+  wsSummary['!freeze'] = {
+    xSplit: 0,
+    ySplit: 4
+  };
+
+  // =========================================================
+  // SAYFA TAB RENGİ
+  // =========================================================
+
+  if (!wb.Workbook) {
+    wb.Workbook = {};
+  }
+
+  if (!wb.Workbook.Sheets) {
+    wb.Workbook.Sheets = [];
+  }
+
+  wb.Workbook.Sheets[0] = {
+    name: 'Özet',
+    Hidden: 0,
+    TabColor: {
+      rgb: '17365D'
+    }
+  };
+
+  wb.Workbook.Sheets[1] = {
+    name: 'Borçlar',
+    Hidden: 0,
+    TabColor: {
+      rgb: '4472C4'
+    }
+  };
+
+  wb.Workbook.Sheets[2] = {
+    name: 'Ödemeler',
+    Hidden: 0,
+    TabColor: {
+      rgb: '70AD47'
+    }
+  };
+
+  wb.Workbook.Sheets[3] = {
+    name: 'Taksitler',
+    Hidden: 0,
+    TabColor: {
+      rgb: 'ED7D31'
+    }
+  };
+
+  // =========================================================
+  // DOSYA ADI
+  // =========================================================
+
+  const today =
+    new Date().toISOString().slice(0, 10);
+
+  XLSX.writeFile(
+    wb,
+    `FinPocket_Profesyonel_Rapor_${today}.xlsx`
+  );
+}
