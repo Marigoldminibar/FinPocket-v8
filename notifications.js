@@ -9,8 +9,8 @@ const Notifications = {
 
         const today = new Date();
         const items = Engine.getAll();
-
-        const todayList = [];
+        const notifiedKey = 'fp_notified_payments';
+        const notified = JSON.parse(localStorage.getItem(notifiedKey) || '[]');        const todayList = [];
         const tomorrowList = [];
         const overdueList = [];
 
@@ -55,12 +55,19 @@ const Notifications = {
                 (paymentDate - compareToday) / 86400000
             );
 
-            const data = {
-                title,
-                value
-            };
+const data = {
+    id: item.id || title,
+    title,
+    value,
+    date: String(dateString)
+};
+const notificationId = `${data.id}_${data.date}_${diff}`;
 
-            if (diff < 0) {
+
+data.notificationId = notificationId;
+data.alreadyNotified = notified.includes(notificationId);
+
+if (diff < 0) {
                 overdueList.push(data);
             } else if (diff === 0) {
                 todayList.push(data);
@@ -109,6 +116,20 @@ const Notifications = {
         });
 
     },
+    markAsNotified(notificationId) {
+
+    const key = 'fp_notified_payments';
+
+    const list = JSON.parse(
+        localStorage.getItem(key) || '[]'
+    );
+
+    if (!list.includes(notificationId)) {
+        list.push(notificationId);
+        localStorage.setItem(key, JSON.stringify(list));
+    }
+
+},
 
     run() {
 
@@ -119,31 +140,42 @@ const Notifications = {
         const result = this.check();
 
         // Bugün ödeme varsa bildirim
-        result.today.forEach(item => {
+        result.today
+    .filter(item => !item.alreadyNotified)
+    .forEach(item => {
 
-            this.send(
-                '💳 Bugün ödeme var',
-                `${item.title} ödeme günü.`
-            );
+this.send(
+    '💳 Bugün ödeme var',
+    `${item.title} ödeme günü.`
+);
 
+this.markAsNotified(item.notificationId);
         });
 
         // Geciken ödeme varsa bildirim
-        result.overdue.forEach(item => {
+        result.overdue
+    .filter(item => !item.alreadyNotified)
+    .forEach(item => {
 
             this.send(
                 '⚠️ Geciken ödeme',
                 `${item.title} ödemesi gecikmiş.`
             );
 
+            this.markAsNotified(item.notificationId);
+
         });
         // Yarın ödeme varsa bildirim
-result.tomorrow.forEach(item => {
+result.tomorrow
+    .filter(item => !item.alreadyNotified)
+    .forEach(item => {
 
     this.send(
         '📅 Yarın ödeme var',
         `${item.title} için yarın ödeme günü.`
     );
+
+    this.markAsNotified(item.notificationId);
 
 });
 

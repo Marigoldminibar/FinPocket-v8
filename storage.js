@@ -122,7 +122,7 @@ saveSettings(settings) {
 
         a.href=url;
 
-        a.download="FinPocket.backup";
+        a.download = "FinPocket.backup.json";
 
         a.click();
 
@@ -130,27 +130,62 @@ saveSettings(settings) {
 
     },
 
-    restore(file){
+restore(file) {
 
-        const reader=new FileReader();
+    if (!file) return;
 
-        reader.onload=e=>{
+    const reader = new FileReader();
 
-            const data=JSON.parse(e.target.result);
+    reader.onload = e => {
 
-            this.saveDebts(data.debts||[]);
+        try {
 
-            this.saveIncome(data.income||0);
+            const data = JSON.parse(e.target.result);
 
-            this.saveSettings(data.settings||{});
+            if (
+                !data ||
+                typeof data !== 'object' ||
+                !Array.isArray(data.debts) ||
+                typeof data.income !== 'number' ||
+                !data.settings ||
+                data.version !== "2.0"
+            ) {
+                alert("Geçersiz veya bozuk FinPocket yedek dosyası.");
+                return;
+            }
 
+            const confirmed = confirm(
+                "Mevcut FinPocket verileriniz yedekten gelen verilerle değiştirilecek.\n\nDevam edilsin mi?"
+            );
+
+            if (!confirmed) return;
+
+            const debtsSaved = this.saveDebts(data.debts);
+            const incomeSaved = this.saveIncome(data.income);
+            const settingsSaved = this.saveSettings(data.settings);
+
+            if (!debtsSaved || !incomeSaved || !settingsSaved) {
+                alert("Yedek geri yüklenemedi. Mevcut veriler korunmuştur.");
+                return;
+            }
+
+            alert("Yedek başarıyla geri yüklendi.");
             location.reload();
 
-        };
+        } catch (error) {
 
-        reader.readAsText(file);
+            alert("Yedek dosyası okunamadı veya bozuk.");
 
-    },
+        }
+
+    };
+
+    reader.onerror = () => {
+        alert("Yedek dosyası okunurken hata oluştu.");
+    };
+
+    reader.readAsText(file);
+},
 
     reset(){
 

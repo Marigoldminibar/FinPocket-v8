@@ -365,16 +365,45 @@ function debtAmount(item) {
     if (!item) return;
     const name = el.editName.value.trim();
     const amount = Number(el.editAmount.value);
+    console.log('EDIT TARİHİ:', el.editDate.value);
     if (!name || !(amount > 0)) return alert('Ad ve tutar geçerli olmalı.');
-    if (isPlan(item)) {
-      const oldMonthly = Number(item.monthly || 0);
-      const newMonthly = Number(el.editMonthly.value || oldMonthly);
-      if (item.type === 'credit') engine.normalizeCredit(item); else engine.normalizeInstallment(item);
-      item.schedule.forEach(s => { if (!s.paid) s.amount = newMonthly; });
-      item.monthly = newMonthly;
-      item.amount = item.schedule.reduce((s,x) => s + Number(x.amount||0), 0);
+if (isPlan(item)) {
+  const oldMonthly = Number(item.monthly || 0);
+  const newMonthly = Number(el.editMonthly.value || oldMonthly);
+
+if (item.type === 'credit') {
+  engine.normalizeCredit(item);
+
+  const newDate = el.editDate.value;
+  const current = item.schedule.find(s => !s.paid);
+
+  if (newDate && current) {
+    const currentIndex = item.schedule.indexOf(current);
+
+    item.schedule.forEach((s, index) => {
+      if (!s.paid) {
+        const newPaymentDate = new Date(newDate + 'T12:00:00');
+        newPaymentDate.setMonth(
+          newPaymentDate.getMonth() + (index - currentIndex)
+        );
+        s.date = newPaymentDate.toISOString().slice(0, 10);
+      }
+    });
+
+    item.nextPayment = newDate;
+  }
+} else {
+  engine.normalizeInstallment(item);
+}
+  item.schedule.forEach(s => {
+    if (!s.paid) s.amount = newMonthly;
+  });
+
+  item.monthly = newMonthly;      item.amount = item.schedule.reduce((s,x) => s + Number(x.amount||0), 0);
       if (item.type === 'credit') item.bank = name; else item.name = name;
-      if (item.type === 'credit') engine.normalizeCredit(item); else engine.normalizeInstallment(item);
+      if (item.type !== 'credit') {
+  engine.normalizeInstallment(item);
+}
     } else {
       const paid = Math.min(Number(item.paidAmount || 0), amount);
       item.originalAmount = amount;
