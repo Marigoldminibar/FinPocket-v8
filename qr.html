@@ -107,9 +107,15 @@ function initQR(){
         return;
     }
 
-    const pairToken = (crypto.randomUUID)
-        ? crypto.randomUUID()
-        : "pair_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+    let pairToken = localStorage.getItem("fp_pair_token");
+
+    if(!pairToken){
+        pairToken = (crypto.randomUUID)
+            ? crypto.randomUUID()
+            : "pair_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+
+        localStorage.setItem("fp_pair_token", pairToken);
+    }
 
     const target = new URL("./index.html", location.href);
 
