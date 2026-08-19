@@ -121,7 +121,7 @@ function initQR(){
     make();
 }
 
-}function make(){
+function make(){
     const v = input.value.trim();
     if(!/^https?:\/\//i.test(v)){
         qr.innerHTML='<p style="color:#fbbf24">Önce HTTPS ile başlayan FinPocket adresini gir.</p>';
