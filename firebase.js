@@ -41,3 +41,22 @@ window.finPocketFirebase = {
 
 console.log("🔥 FinPocket Firebase hazır");
 console.log("🔥 Realtime Database hazır");
+
+// ===============================
+// FinPocket Firebase Data Helpers
+// ===============================
+import {
+    ref,
+    get,
+    set,
+    onValue
+} from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
+
+window.finPocketFirebaseData = {
+    ref,
+    get,
+    set,
+    onValue
+};
+
+console.log("🔥 FinPocket Firebase Data Helpers hazır");
