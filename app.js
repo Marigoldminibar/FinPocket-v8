@@ -12,6 +12,47 @@
     localStorage.setItem(deviceKey, DEVICE_ID);
     }
 
+  // QR cihaz eşleştirme
+  const pairToken = new URLSearchParams(window.location.search).get('pair');
+
+  if (pairToken) {
+    const pairedTokenKey = 'fp_paired_token';
+    const pairedDeviceKey = 'fp_paired_device';
+
+    const savedToken = localStorage.getItem(pairedTokenKey);
+    const savedDevice = localStorage.getItem(pairedDeviceKey);
+
+    if (!savedToken) {
+      localStorage.setItem(pairedTokenKey, pairToken);
+      localStorage.setItem(pairedDeviceKey, DEVICE_ID);
+    } else if (
+      savedToken !== pairToken ||
+      savedDevice !== DEVICE_ID
+    ) {
+      document.body.innerHTML = `
+        <div style="
+          min-height:100vh;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          background:#0b1220;
+          color:#fff;
+          font-family:Arial;
+          text-align:center;
+          padding:30px;
+          box-sizing:border-box;
+        ">
+          <div>
+            <div style="font-size:60px">🔒</div>
+            <h2>Cihaz Yetkili Değil</h2>
+            <p>Bu FinPocket kurulumu başka bir cihazla eşleştirilmiş.</p>
+          </div>
+        </div>
+      `;
+      return;
+    }
+  }
+
   const engine = window.Engine;
   if (!engine) {
     document.body.innerHTML = '<div style="padding:30px;font-family:Arial;color:#fff;background:#0b1220"><h2>FinPocket yüklenemedi</h2><p>engine.js bulunamadı veya JavaScript çalıştırılamadı.</p></div>';

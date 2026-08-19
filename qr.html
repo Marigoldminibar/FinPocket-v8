@@ -102,16 +102,26 @@ pinInput.addEventListener("keydown", e => {
 });
 
 function initQR(){
-    const target = new URL("./index.html?mobile=1", location.href);
-    if(/^https?:$/.test(location.protocol)){
-        input.value = target.href;
-        make();
-    }else{
+    if(!/^https?:$/.test(location.protocol)){
         input.value = "";
+        return;
     }
+
+    const pairToken = (crypto.randomUUID)
+        ? crypto.randomUUID()
+        : "pair_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+
+    const target = new URL("./index.html", location.href);
+
+    target.searchParams.set("mobile", "1");
+    target.searchParams.set("pair", pairToken);
+
+    input.value = target.href;
+
+    make();
 }
 
-function make(){
+}function make(){
     const v = input.value.trim();
     if(!/^https?:\/\//i.test(v)){
         qr.innerHTML='<p style="color:#fbbf24">Önce HTTPS ile başlayan FinPocket adresini gir.</p>';
