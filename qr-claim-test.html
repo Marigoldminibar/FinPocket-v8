@@ -86,7 +86,7 @@ if(!token){
             }
         );
 
-        const data = result.snapshot.val();
+        const data = result.snapshot.val(); console.log("CLAIM_DEBUG", {committed: result.committed, token, data, deviceId});
 
         if(!result.committed || !data){
 
