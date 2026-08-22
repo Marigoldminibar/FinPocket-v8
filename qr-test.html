@@ -87,7 +87,7 @@ document.getElementById("create").onclick = async () => {
         await set(ref(db, "qr_test_sessions/" + token), session);
 
         const url =
-            new URL("./index.html", location.href);
+            new URL("./qr-claim-test.html", location.href);
 
         url.searchParams.set("mobile", "1");
         url.searchParams.set("pair", token);
