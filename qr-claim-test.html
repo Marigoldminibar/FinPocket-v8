@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FinPocket QR Doğrulama Testi</title>
+<style>
+body{font-family:Arial;background:#0b1220;color:#fff;padding:30px;text-align:center}
+.box{max-width:500px;margin:60px auto;background:#1e293b;border-radius:20px;padding:30px}
+.ok{color:#22c55e}.err{color:#f87171}
+</style>
+</head>
+<body>
+<div class="box">
+<h1>🔐 QR Doğrulama</h1>
+<p id="status">Doğrulanıyor...</p>
+</div>
+
+<script type="module">
+import { initializeApp }
+from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+
+import {
+    getDatabase,
+    ref,
+    runTransaction
+} from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyAST0JcpIsIt0LAO1tKCfC8IGzsQpDCzqE",
+    authDomain: "finpocket-1bb98.firebaseapp.com",
+    projectId: "finpocket-1bb98",
+    storageBucket: "finpocket-1bb98.firebasestorage.app",
+    databaseURL: "https://finpocket-1bb98-default-rtdb.europe-west1.firebasedatabase.app",
+    messagingSenderId: "929372485925",
+    appId: "1:929372485925:web:214198c36fc06be7f802cc"
+};
+
+const app = initializeApp(firebaseConfig, "FinPocketQRClaimTest");
+const db = getDatabase(app);
+
+const status = document.getElementById("status");
+const params = new URLSearchParams(location.search);
+const token = params.get("pair");
+
+let deviceId = localStorage.getItem("qr_test_device");
+
+if(!deviceId){
+    deviceId = crypto.randomUUID();
+    localStorage.setItem("qr_test_device", deviceId);
+}
+
+if(!token){
+    status.className = "err";
+    status.textContent = "❌ QR token bulunamadı.";
+}else{
+
+    try{
+
+        const result = await runTransaction(
+            ref(db, "qr_test_sessions/" + token),
+            current => {
+
+                if(!current) return;
+
+                const now = Date.now();
+
+                if(current.expiresAt && now > current.expiresAt){
+                    return;
+                }
+
+                if(current.deviceId){
+                    if(current.deviceId === deviceId){
+                        return current;
+                    }
+
+                    return;
+                }
+
+                return {
+                    ...current,
+                    deviceId: deviceId,
+                    status: "claimed",
+                    claimedAt: now
+                };
+            }
+        );
+
+        const data = result.snapshot.val();
+
+        if(!result.committed || !data){
+
+            status.className = "err";
+            status.innerHTML =
+                "🔒 <b>QR GEÇERSİZ</b><br><br>" +
+                "Süresi dolmuş veya başka cihaz tarafından kullanılmış.";
+
+        }else{
+
+            status.className = "ok";
+            status.innerHTML =
+                "✅ <b>QR DOĞRULANDI</b><br><br>" +
+                "Bu cihaz yetkilendirildi.<br><br>" +
+                "Token Firebase üzerinde kilitlendi.";
+
+            console.log("QR CLAIM OK", {
+                token,
+                deviceId,
+                data
+            });
+        }
+
+    }catch(error){
+
+        console.error(error);
+
+        status.className = "err";
+        status.textContent =
+            "❌ Firebase doğrulama hatası.";
+    }
+}
+</script>
+</body>
+</html>
