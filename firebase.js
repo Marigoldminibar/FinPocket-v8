@@ -1,4 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
 
 import {
     getFirestore
@@ -21,6 +22,8 @@ const firebaseConfig = {
 
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+signInAnonymously(auth).then(() => console.log("🔐 Firebase Anonymous Auth OK")).catch(error => console.error("❌ Firebase Auth Hatası:", error));
 
 
 // Firestore
@@ -32,7 +35,7 @@ const rtdb = getDatabase(app);
 
 
 // Uygulamanın diğer bölümlerinden erişebilmek için
-window.finPocketFirebase = {
+window.finPocketFirebase = { auth,
     app,
     db,
     rtdb
