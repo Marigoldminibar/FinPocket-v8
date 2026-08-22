@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FinPocket QR Test</title>
+<style>
+body{font-family:Arial;background:#0b1220;color:#fff;padding:30px;text-align:center}
+button{padding:15px 30px;border:0;border-radius:10px;background:#22c55e;font-weight:bold;font-size:16px}
+#qr{margin:25px auto;background:#fff;padding:15px;width:300px}
+input{width:90%;padding:12px;margin:10px}
+</style>
+</head>
+<body>
+
+<h1>🔐 FinPocket QR TEST</h1>
+<p>Firebase tabanlı 10 dakikalık QR testi</p>
+
+<input id="pin" type="password" placeholder="Yönetici PIN'i">
+<br>
+<button id="create">Yeni QR Oluştur</button>
+
+<div id="qr"></div>
+<p id="status"></p>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+<script type="module">
+import { initializeApp }
+from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+
+import {
+    getDatabase,
+    ref,
+    set
+} from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyAST0JcpIsIt0LAO1tKCfC8IGzsQpDCzqE",
+    authDomain: "finpocket-1bb98.firebaseapp.com",
+    projectId: "finpocket-1bb98",
+    storageBucket: "finpocket-1bb98.firebasestorage.app",
+    databaseURL: "https://finpocket-1bb98-default-rtdb.europe-west1.firebasedatabase.app",
+    messagingSenderId: "929372485925",
+    appId: "1:929372485925:web:214198c36fc06be7f802cc"
+};
+
+const app = initializeApp(firebaseConfig, "FinPocketQRTest");
+const db = getDatabase(app);
+
+const ADMIN_PIN_HASH =
+"ce332c83a236eaf5a0d83d4630a615dc665115149d1f8bb503c92882819804ab";
+
+async function sha256(text){
+    const data = new TextEncoder().encode(text);
+    const hash = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(hash))
+        .map(b => b.toString(16).padStart(2,"0"))
+        .join("");
+}
+
+document.getElementById("create").onclick = async () => {
+
+    const pin = document.getElementById("pin").value.trim();
+    const status = document.getElementById("status");
+    const qr = document.getElementById("qr");
+
+    if(await sha256(pin) !== ADMIN_PIN_HASH){
+        status.textContent = "❌ PIN yanlış";
+        return;
+    }
+
+    const token = crypto.randomUUID().replaceAll("-","");
+    const now = Date.now();
+    const expiresAt = now + (10 * 60 * 1000);
+
+    const session = {
+        createdAt: now,
+        expiresAt: expiresAt,
+        status: "available",
+        deviceId: null,
+        claimedAt: null
+    };
+
+    try {
+
+        await set(ref(db, "qr_test_sessions/" + token), session);
+
+        const url =
+            new URL("./index.html", location.href);
+
+        url.searchParams.set("mobile", "1");
+        url.searchParams.set("pair", token);
+
+        qr.innerHTML = "";
+
+        new QRCode(qr, {
+            text: url.href,
+            width: 300,
+            height: 300
+        });
+
+        status.textContent =
+            "✅ Firebase QR oluşturuldu — 10 dakika geçerli";
+
+        console.log("QR_TEST_TOKEN:", token);
+        console.log("QR_TEST_SESSION:", session);
+
+    } catch(error) {
+
+        console.error(error);
+        status.textContent =
+            "❌ Firebase yazma hatası — F12 Console'a bak";
+    }
+};
+</script>
+
+</body>
+</html>
