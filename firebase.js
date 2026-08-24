@@ -67,12 +67,16 @@ window.finPocketFirebaseData = {
 console.log("🔥 FinPocket Firebase Data Helpers hazır");
 
 signInAnonymously(auth)
-    .then(() => {
-        console.log("🔐 Firebase Anonymous Auth OK");
+    .then(userCredential => {
+        console.log("🔐 Firebase Anonymous Auth OK:", userCredential.user.uid);
+
         window.dispatchEvent(new Event("finpocketFirebaseReady"));
+
         console.log("🔥 FinPocket Firebase Ready event gönderildi");
     })
     .catch(error => {
         console.error("❌ Firebase Anonymous Auth Hatası:", error);
-        window.dispatchEvent(new CustomEvent("finpocketFirebaseError", { detail: error }));
+        window.dispatchEvent(
+            new CustomEvent("finpocketFirebaseError", { detail: error })
+        );
     });
