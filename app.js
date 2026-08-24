@@ -128,13 +128,32 @@ try {
         // mobile=1 KALIR. Böylece temiz URL başka telefonda açılırsa erişim kontrolü devam eder.
         history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
       } else {
-        const savedToken = localStorage.getItem('fp_paired_token');
-        const savedDevice = localStorage.getItem('fp_paired_device');
-        if (!savedToken || savedDevice !== DEVICE_ID) {
-          showPairError('Cihaz yetkili değil', 'Bu FinPocket bağlantısı yalnızca QR ile eşleştirilmiş ilk cihazda çalışır.');
-          return;
-        }
-        await verifyMobileSession(savedToken);
+let savedToken = localStorage.getItem('fp_paired_token');
+const savedDevice = localStorage.getItem('fp_paired_device');
+
+if (!savedToken) {
+  const cookieToken = document.cookie
+    .split('; ')
+    .find(row => row.startsWith('fp_qr_token='))
+    ?.split('=')[1];
+
+  if (cookieToken) {
+    savedToken = decodeURIComponent(cookieToken);
+
+    localStorage.setItem('fp_paired_token', savedToken);
+    localStorage.setItem('fp_paired_device', DEVICE_ID);
+  }
+}
+
+if (!savedToken) {
+  showPairError(
+    'Cihaz yetkili değil',
+    'Bu FinPocket bağlantısı yalnızca QR ile eşleştirilmiş cihazda çalışır.'
+  );
+  return;
+}
+
+await verifyMobileSession(savedToken);
       }
     } catch (err) {
       console.error('QR eşleştirme hatası:', err);
