@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
 
 import {
     getFirestore
@@ -38,9 +38,9 @@ window.finPocketFirebase = {
     app,
     auth,
     db,
-    rtdb
+    rtdb,
+    authUser: null
 };
-
 
 console.log("🔥 FinPocket Firebase hazır");
 console.log("🔥 Realtime Database hazır");
@@ -68,15 +68,13 @@ console.log("🔥 FinPocket Firebase Data Helpers hazır");
 
 signInAnonymously(auth)
     .then(userCredential => {
-        console.log("🔐 Firebase Anonymous Auth OK:", userCredential.user.uid);
+        window.finPocketFirebase.authUser = userCredential.user;
 
-        window.dispatchEvent(new Event("finpocketFirebaseReady"));
-
-        console.log("🔥 FinPocket Firebase Ready event gönderildi");
+        console.log(
+            "🔐 Firebase Anonymous Auth OK:",
+            userCredential.user.uid
+        );
     })
     .catch(error => {
         console.error("❌ Firebase Anonymous Auth Hatası:", error);
-        window.dispatchEvent(
-            new CustomEvent("finpocketFirebaseError", { detail: error })
-        );
     });

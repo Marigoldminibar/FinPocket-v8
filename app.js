@@ -30,52 +30,60 @@
       </div>`;
   }
 
-  const waitForFirebase = () => new Promise((resolve, reject) => {
-    let timer;
-    const ready = () => {
-      if (window.finPocketFirebaseData?.runTransaction && window.finPocketFirebaseData?.get && window.finPocketFirebase?.rtdb && window.finPocketFirebase?.auth?.currentUser) {
-        window.removeEventListener('finpocketFirebaseReady', ready);
-        clearTimeout(timer);
-        resolve();
-        return true;
-      }
-      return false;
-    };
-    if (ready()) return;
-    timer = setTimeout(() => {
-      window.removeEventListener('finpocketFirebaseReady', ready);
-      reject(new Error('Firebase helper zamanında hazır olmadı.'));
-    }, 10000);
-    window.addEventListener('finpocketFirebaseReady', ready, { once: true });
-    
-    const poll = setInterval(() => {
-  if (ready()) clearInterval(poll);
-}, 250);
-  });
+const waitForFirebase = async () => {
+    const fb = window.finPocketFirebase;
+    const helpers = window.finPocketFirebaseData;
 
-  async function verifyMobileSession(token) {
-    await waitForFirebase();
-    const fb = window.finPocketFirebaseData;
-    const snap = await fb.get(fb.ref(window.finPocketFirebase.rtdb, 'qr_sessions/' + token));
-    const data = snap.val();
-    if (!data || data.status !== 'claimed' || data.claimedDevice !== window.finPocketFirebase.auth.currentUser.uid) {
-      throw new Error('Bu cihaz FinPocket ile eşleştirilmemiş.');
+    if (!fb?.rtdb || !helpers?.runTransaction || !helpers?.get) {
+        throw new Error('Firebase yardımcıları yüklenemedi.');
     }
-    return data;
-  }
 
+    for (let i = 0; i < 60; i++) {
+        if (fb.authUser) {
+            return fb.authUser;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 250));
+    }
+
+    throw new Error('Firebase Anonymous Auth hazır olmadı.');
+};
+async function verifyMobileSession(token) {
+    const user = await waitForFirebase();
+
+    const fb = window.finPocketFirebaseData;
+
+    const snap = await fb.get(
+        fb.ref(
+            window.finPocketFirebase.rtdb,
+            'qr_sessions/' + token
+        )
+    );
+
+    const data = snap.val();
+
+    if (
+        !data ||
+        data.status !== 'claimed' ||
+        data.claimedDevice !== user.uid
+    ) {
+        throw new Error('Bu cihaz FinPocket ile eşleştirilmemiş.');
+    }
+
+    return data;
+}
   if (mobileMode) {
     try {
       if (pairToken) {
-        await waitForFirebase();
-        const fb = window.finPocketFirebaseData;
+const user = await waitForFirebase();
+const fb = window.finPocketFirebaseData;
         const sessionRef = fb.ref(window.finPocketFirebase.rtdb, 'qr_sessions/' + pairToken);
 
         const result = await fb.runTransaction(sessionRef, current => {
           if (!current || current.status !== 'available') return;
           const expiresAt = Number(current.expiresAt || 0);
           if (expiresAt && Date.now() > expiresAt) return;
-          return { ...current, status: 'claimed', claimedDevice: window.finPocketFirebase.auth.currentUser.uid, claimedAt: Date.now() };
+          return { ...current, status: 'claimed', claimedDevice: user.uid, claimedAt: Date.now() };
         });
 
         if (!result.committed) {
