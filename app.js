@@ -79,23 +79,42 @@ const user = await waitForFirebase();
 const fb = window.finPocketFirebaseData;
         const sessionRef = fb.ref(window.finPocketFirebase.rtdb, 'qr_sessions/' + pairToken);
 
-        const result = await fb.runTransaction(sessionRef, current => {
-          if (!current || current.status !== 'available') return;
-          const expiresAt = Number(current.expiresAt || 0);
-          if (expiresAt && Date.now() > expiresAt) return;
-          return { ...current, status: 'claimed', claimedDevice: user.uid, claimedAt: Date.now() };
-        });
+const snap = await fb.get(sessionRef);
+const current = snap.val();
 
-if (!result.committed) {
-  console.error("QR TRANSACTION COMMIT OLMADI", {
-    token: pairToken,
-    firebaseUser: user?.uid,
-    result
-  });
+if (!current || current.status !== 'available') {
+  showPairError(
+    'QR artık geçerli değil',
+    'Bu QR daha önce kullanılmış veya Firebase oturumu bulunamadı.'
+  );
+  return;
+}
+
+const expiresAt = Number(current.expiresAt || 0);
+
+if (expiresAt && Date.now() > expiresAt) {
+  showPairError(
+    'QR süresi doldu',
+    'Lütfen yeni bir QR kod oluşturun.'
+  );
+  return;
+}
+
+const claimedData = {
+  ...current,
+  status: 'claimed',
+  claimedDevice: user.uid,
+  claimedAt: Date.now()
+};
+
+try {
+  await fb.set(sessionRef, claimedData);
+} catch (error) {
+  console.error('QR CLAIM HATASI:', error);
 
   showPairError(
-    'QR işlemi tamamlanamadı',
-    'Firebase transaction commit olmadı. Console kayıtlarına bakın.'
+    'QR artık geçerli değil',
+    'Bu QR başka bir cihaz tarafından kullanılmış olabilir.'
   );
   return;
 }
