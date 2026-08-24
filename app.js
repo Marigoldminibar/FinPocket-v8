@@ -86,11 +86,19 @@ const fb = window.finPocketFirebaseData;
           return { ...current, status: 'claimed', claimedDevice: user.uid, claimedAt: Date.now() };
         });
 
-        if (!result.committed) {
-          showPairError('QR artık geçerli değil', 'Bu QR daha önce başka bir cihaz tarafından kullanılmış veya süresi dolmuş.');
-          return;
-        }
+if (!result.committed) {
+  console.error("QR TRANSACTION COMMIT OLMADI", {
+    token: pairToken,
+    firebaseUser: user?.uid,
+    result
+  });
 
+  showPairError(
+    'QR işlemi tamamlanamadı',
+    'Firebase transaction commit olmadı. Console kayıtlarına bakın.'
+  );
+  return;
+}
         localStorage.setItem('fp_paired_token', pairToken);
         localStorage.setItem('fp_paired_device', DEVICE_ID);
 
