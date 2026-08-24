@@ -117,7 +117,9 @@ try {
     'Bu QR başka bir cihaz tarafından kullanılmış olabilir.'
   );
   return;
-}
+}document.cookie =
+  "fp_qr_token=" + encodeURIComponent(pairToken) +
+  "; Max-Age=31536000; Path=/; SameSite=Lax; Secure";
         localStorage.setItem('fp_paired_token', pairToken);
         localStorage.setItem('fp_paired_device', DEVICE_ID);
 
