@@ -1,0 +1,14 @@
+FinPocket QR - Final
+
+Bu paket QR eslestirme sisteminin temizlenmis son halidir.
+
+- QR oturumu Firebase Realtime Database /qr_sessions altinda olusur.
+- Firebase Anonymous Authentication kullanilir.
+- QR ilk okuyan cihaz tarafindan transaction ile claim edilir.
+- Baska cihaz ayni QR/token ile claim edemez.
+- Eslestirilmis cihaz daha sonra kendi localStorage tokeni ile dogrulanir.
+- QR oturumu 10 dakika gecerlidir.
+- database.rules.json auth olmayan erisimi kapatir.
+
+Kurulum: Firebase Realtime Database Rules alanina database.rules.json icerigini uygulayin.
+Firebase Authentication > Sign-in method > Anonymous etkin olmalidir.

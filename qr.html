@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f172a">
+<title>FinPocket QR - Yönetici</title>
+<link rel="stylesheet" href="style.css">
+<style>
+body{padding:20px}
+.qrBox{max-width:520px;margin:0 auto;background:#1e293b;border-radius:22px;padding:24px;text-align:center}
+.qrBox h1{margin-bottom:8px}.qrBox p{color:#94a3b8;line-height:1.5}
+.qrBox input{width:100%;padding:14px;border-radius:11px;border:1px solid #475569;background:#334155;color:#fff;font-size:15px;margin:18px 0 10px;box-sizing:border-box}
+.qrBox button{width:100%;padding:14px;border:0;border-radius:11px;margin-top:8px;font-size:16px;font-weight:800;cursor:pointer}
+.primary{background:#22c55e;color:#052e16}.secondary{background:#f59e0b;color:#111827}
+.qrImage{background:#fff;border-radius:16px;padding:14px;margin:18px auto;width:min(100%,330px);min-height:40px;box-sizing:border-box}
+.qrImage img{display:block;width:100%;height:auto}.warning{font-size:12px;color:#fbbf24;margin-top:14px}
+.back{background:#334155;color:#fff}.error{color:#f87171!important;font-weight:700}
+.success{color:#4ade80!important;font-weight:700}.info{color:#60a5fa!important;font-weight:700}
+.lockBox{max-width:360px;margin:60px auto 0;background:#0f172a;border-radius:18px;padding:24px}
+.hidden{display:none!important}
+.status{min-height:24px;margin-top:10px}
+</style>
+</head>
+<body>
+<main class="qrBox">
+
+<section id="lockScreen" class="lockBox">
+<h1>🔐 Yönetici QR</h1>
+<p>QR oluşturmak için yönetici PIN'i gerekli.</p>
+<input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="Yönetici PIN'i">
+<button class="primary" id="unlock">🔓 Giriş</button>
+<p id="pinError" class="error"></p>
+<button class="back" id="back1">← Geri</button>
+</section>
+
+<section id="qrScreen" class="hidden">
+<h1>📱 FinPocket QR</h1>
+<p>QR her oluşturulduğunda Firebase'de yeni ve tek kullanımlık bir oturum açılır.</p>
+
+<button class="primary" id="make">QR Oluştur</button>
+
+<div class="qrImage" id="qr"><p>QR burada görünecek.</p></div>
+<p id="status" class="status info"></p>
+
+<input id="url" aria-label="FinPocket adresi" readonly>
+
+<button class="secondary hidden" id="open">Bu cihazda test et</button>
+<button class="back" id="back2">← Geri</button>
+
+<p class="warning">
+Bu QR yalnızca ilk okuyan cihaz tarafından Firebase üzerinde sahiplenilir.
+Aynı QR'ın kopyası veya URL'si başka cihazda açılamaz.
+</p>
+</section>
+
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+import {
+  getDatabase,
+  ref,
+  set,
+  onValue
+} from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAST0JcpIsIt0LAO1tKCfC8IGzsQpDCzqE",
+  authDomain: "finpocket-1bb98.firebaseapp.com",
+  projectId: "finpocket-1bb98",
+  storageBucket: "finpocket-1bb98.firebasestorage.app",
+  databaseURL: "https://finpocket-1bb98-default-rtdb.europe-west1.firebasedatabase.app",
+  messagingSenderId: "929372485925",
+  appId: "1:929372485925:web:214198c36fc06be7f802cc"
+};
+
+const app = initializeApp(firebaseConfig, "FinPocketQR");
+const rtdb = getDatabase(app);
+const auth = getAuth(app);
+
+const ADMIN_PIN_HASH = "ce332c83a236eaf5a0d83d4630a615dc665115149d1f8bb503c92882819804ab";
+const QR_MAX_ATTEMPTS = 5;
+const QR_LOCK_MS = 15 * 60 * 1000;
+const QR_TTL_MS = 10 * 60 * 1000;
+
+const lockScreen = document.getElementById("lockScreen");
+const qrScreen = document.getElementById("qrScreen");
+const pinInput = document.getElementById("pin");
+const pinError = document.getElementById("pinError");
+const input = document.getElementById("url");
+const qr = document.getElementById("qr");
+const status = document.getElementById("status");
+const makeBtn = document.getElementById("make");
+const openBtn = document.getElementById("open");
+
+let currentToken = null;
+let unsubscribe = null;
+
+async function sha256(value){
+  const data = new TextEncoder().encode(value);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2,"0"))
+    .join("");
+}
+
+async function unlock(){
+  const now = Date.now();
+  const lockedUntil = Number(localStorage.getItem("fp_qr_locked_until") || 0);
+  let attempts = Number(localStorage.getItem("fp_qr_attempts") || 0);
+
+  if(now < lockedUntil){
+    const minutes = Math.ceil((lockedUntil - now) / 60000);
+    pinError.textContent = "Çok fazla yanlış deneme. " + minutes + " dakika bekleyin.";
+    return;
+  }
+
+  const hash = await sha256(pinInput.value);
+
+  if(hash === ADMIN_PIN_HASH){
+    localStorage.removeItem("fp_qr_attempts");
+    localStorage.removeItem("fp_qr_locked_until");
+    lockScreen.classList.add("hidden");
+    qrScreen.classList.remove("hidden");
+    pinInput.value = "";
+    pinError.textContent = "";
+    return;
+  }
+
+  attempts++;
+  pinInput.value = "";
+
+  if(attempts >= QR_MAX_ATTEMPTS){
+    localStorage.setItem("fp_qr_locked_until", String(now + QR_LOCK_MS));
+    localStorage.removeItem("fp_qr_attempts");
+    pinError.textContent = "5 yanlış deneme. 15 dakika kilitlendi.";
+  }else{
+    localStorage.setItem("fp_qr_attempts", String(attempts));
+    pinError.textContent = "PIN yanlış. Kalan deneme: " + (QR_MAX_ATTEMPTS - attempts);
+    pinInput.focus();
+  }
+}
+
+function randomToken(){
+  if(crypto.randomUUID) return crypto.randomUUID().replaceAll("-","");
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes,b => b.toString(16).padStart(2,"0")).join("");
+}
+
+async function ensureAuth(){
+  if(auth.currentUser) return auth.currentUser;
+  const credential = await signInAnonymously(auth);
+  return credential.user;
+}
+
+async function createQR(){
+  makeBtn.disabled = true;
+  makeBtn.textContent = "QR hazırlanıyor...";
+  status.textContent = "Firebase'e tek kullanımlık oturum yazılıyor.";
+  status.className = "status info";
+  qr.innerHTML = "<p>Hazırlanıyor...</p>";
+  openBtn.classList.add("hidden");
+
+  try{
+    await ensureAuth();
+    if(unsubscribe) {
+      unsubscribe();
+      unsubscribe = null;
+    }
+
+    const token = randomToken();
+    const now = Date.now();
+    const expiresAt = now + QR_TTL_MS;
+
+    const sessionRef = ref(rtdb, "qr_sessions/" + token);
+
+    await set(sessionRef, {
+      status: "available",
+      createdAt: now,
+      expiresAt,
+      claimedDevice: null,
+      claimedAt: null
+    });
+
+    currentToken = token;
+
+    const target = new URL("./index.html", location.href);
+    target.searchParams.set("mobile", "1");
+    target.searchParams.set("pair", token);
+
+    const targetUrl = target.href;
+    input.value = targetUrl;
+
+    const qrUrl =
+      "https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=10&data=" +
+      encodeURIComponent(targetUrl);
+
+    qr.innerHTML = '<img src="' + qrUrl + '" alt="FinPocket tek kullanımlık QR">';
+
+    status.textContent = "🟢 QR hazır — telefon okutmasını bekliyor.";
+    status.className = "status success";
+
+    openBtn.classList.remove("hidden");
+
+    unsubscribe = onValue(sessionRef, snap => {
+      const data = snap.val();
+
+      if(!data){
+        status.textContent = "🔴 Oturum bulunamadı.";
+        status.className = "status error";
+        return;
+      }
+
+      if(data.status === "claimed"){
+        status.textContent = "✅ QR kullanıldı. Bu QR artık başka cihazda çalışmaz.";
+        status.className = "status success";
+        makeBtn.disabled = false;
+        makeBtn.textContent = "Yeni QR Oluştur";
+      }else if(Date.now() > Number(data.expiresAt || 0)){
+        status.textContent = "⏱️ QR süresi doldu. Yeni QR oluşturun.";
+        status.className = "status error";
+        makeBtn.disabled = false;
+        makeBtn.textContent = "Yeni QR Oluştur";
+      }
+    });
+
+  }catch(err){
+    console.error(err);
+    status.textContent = "❌ Firebase QR oluşturulamadı: " + (err?.message || err);
+    status.className = "status error";
+    makeBtn.disabled = false;
+    makeBtn.textContent = "Tekrar Dene";
+  }
+}
+
+makeBtn.onclick = createQR;
+document.getElementById("unlock").onclick = unlock;
+pinInput.addEventListener("keydown", e => {
+  if(e.key === "Enter") unlock();
+});
+
+openBtn.onclick = () => {
+  if(input.value.trim()) location.href = input.value.trim();
+};
+
+document.getElementById("back1").onclick = () => history.back();
+document.getElementById("back2").onclick = () => history.back();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "rules": {
+    "qr_sessions": {
+      "$token": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((data.exists() == false && newData.child('status').val() == 'available') || (data.exists() == true && data.child('status').val() == 'available' && newData.child('status').val() == 'claimed' && newData.child('claimedDevice').val() == auth.uid))",
+        ".validate": "newData.hasChildren(['status','createdAt','expiresAt']) && (newData.child('status').val() == 'available' || (newData.child('status').val() == 'claimed' && newData.child('claimedDevice').val() == auth.uid))"
+      }
+    }
+  }
+}
