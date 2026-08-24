@@ -47,7 +47,10 @@
       reject(new Error('Firebase helper zamanında hazır olmadı.'));
     }, 10000);
     window.addEventListener('finpocketFirebaseReady', ready, { once: true });
-    setTimeout(ready, 0);
+    
+    const poll = setInterval(() => {
+  if (ready()) clearInterval(poll);
+}, 250);
   });
 
   async function verifyMobileSession(token) {
