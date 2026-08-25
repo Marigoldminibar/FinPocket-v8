@@ -83,30 +83,33 @@ const sessionRef = fb.ref(
 );
 
 try {
-  const result = await fb.runTransaction(sessionRef, currentData => {
-    if (!currentData) return;
+  const snap = await fb.get(sessionRef);
+  const currentData = snap.val();
 
-    if (currentData.status !== 'available') return;
-
-    const expiresAt = Number(currentData.expiresAt || 0);
-
-    if (expiresAt && Date.now() > expiresAt) return;
-
-    return {
-      ...currentData,
-      status: 'claimed',
-      claimedDevice: user.uid,
-      claimedAt: Date.now()
-    };
-  });
-
-  if (!result.committed) {
+  if (!currentData || currentData.status !== "available") {
     showPairError(
-      'QR artık geçerli değil',
-      'Bu QR daha önce kullanılmış veya süresi dolmuş.'
+      "QR artık geçerli değil",
+      "Bu QR Firebase üzerinde bulunamadı veya daha önce kullanıldı."
     );
     return;
   }
+
+  const expiresAt = Number(currentData.expiresAt || 0);
+
+  if (expiresAt && Date.now() > expiresAt) {
+    showPairError(
+      "QR süresi doldu",
+      "Lütfen yeni bir QR oluşturun."
+    );
+    return;
+  }
+
+  await fb.set(sessionRef, {
+    ...currentData,
+    status: "claimed",
+    claimedDevice: user.uid,
+    claimedAt: Date.now()
+  });
 
   document.cookie =
     'fp_qr_token=' + encodeURIComponent(pairToken) +
