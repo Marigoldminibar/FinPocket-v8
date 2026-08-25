@@ -77,40 +77,20 @@ async function verifyMobileSession(token) {
       if (pairToken) {
 const user = await waitForFirebase();
 const fb = window.finPocketFirebaseData;
-        const sessionRef = fb.ref(window.finPocketFirebase.rtdb, 'qr_sessions/' + pairToken);
-
-const snap = await fb.get(sessionRef);
-const current = snap.val();
-
-if (!current || current.status !== 'available') {
-  showPairError(
-    'QR artık geçerli değil',
-    'Bu QR daha önce kullanılmış veya Firebase oturumu bulunamadı.'
-  );
-  return;
-}
-
-const expiresAt = Number(current.expiresAt || 0);
-
-if (expiresAt && Date.now() > expiresAt) {
-  showPairError(
-    'QR süresi doldu',
-    'Lütfen yeni bir QR kod oluşturun.'
-  );
-  return;
-}
+const sessionRef = fb.ref(
+  window.finPocketFirebase.rtdb,
+  'qr_sessions/' + pairToken
+);
 
 try {
-  const transactionResult = await fb.runTransaction(sessionRef, currentData => {
-    if (!currentData || currentData.status !== 'available') {
-      return;
-    }
+  const result = await fb.runTransaction(sessionRef, currentData => {
+    if (!currentData) return;
+
+    if (currentData.status !== 'available') return;
 
     const expiresAt = Number(currentData.expiresAt || 0);
 
-    if (expiresAt && Date.now() > expiresAt) {
-      return;
-    }
+    if (expiresAt && Date.now() > expiresAt) return;
 
     return {
       ...currentData,
@@ -120,31 +100,39 @@ try {
     };
   });
 
-  if (!transactionResult.committed) {
+  if (!result.committed) {
     showPairError(
       'QR artık geçerli değil',
-      'Bu QR başka bir cihaz tarafından kullanılmış olabilir.'
+      'Bu QR daha önce kullanılmış veya süresi dolmuş.'
     );
     return;
   }
+
+  document.cookie =
+    'fp_qr_token=' + encodeURIComponent(pairToken) +
+    '; Max-Age=31536000; Path=/; SameSite=Lax; Secure';
+
+  localStorage.setItem('fp_paired_token', pairToken);
+  localStorage.setItem('fp_paired_device', DEVICE_ID);
+
+  const cleanUrl = new URL(window.location.href);
+  cleanUrl.searchParams.delete('pair');
+
+  history.replaceState(
+    {},
+    document.title,
+    cleanUrl.pathname + cleanUrl.search + cleanUrl.hash
+  );
+
 } catch (error) {
   console.error('QR CLAIM HATASI:', error);
 
   showPairError(
-    'QR artık geçerli değil',
-    'Bu QR başka bir cihaz tarafından kullanılmış olabilir.'
+    'Erişim doğrulanamadı',
+    'Firebase QR eşleştirmesi başarısız.'
   );
   return;
-}document.cookie =
-  "fp_qr_token=" + encodeURIComponent(pairToken) +
-  "; Max-Age=31536000; Path=/; SameSite=Lax; Secure";
-        localStorage.setItem('fp_paired_token', pairToken);
-        localStorage.setItem('fp_paired_device', DEVICE_ID);
-
-        const cleanUrl = new URL(window.location.href);
-        cleanUrl.searchParams.delete('pair');
-        // mobile=1 KALIR. Böylece temiz URL başka telefonda açılırsa erişim kontrolü devam eder.
-        history.replaceState({}, document.title, cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+}
       } else {
 let savedToken = localStorage.getItem('fp_paired_token');
 const savedDevice = localStorage.getItem('fp_paired_device');
