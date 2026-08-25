@@ -100,15 +100,33 @@ if (expiresAt && Date.now() > expiresAt) {
   return;
 }
 
-const claimedData = {
-  ...current,
-  status: 'claimed',
-  claimedDevice: user.uid,
-  claimedAt: Date.now()
-};
-
 try {
-  await fb.set(sessionRef, claimedData);
+  const transactionResult = await fb.runTransaction(sessionRef, currentData => {
+    if (!currentData || currentData.status !== 'available') {
+      return;
+    }
+
+    const expiresAt = Number(currentData.expiresAt || 0);
+
+    if (expiresAt && Date.now() > expiresAt) {
+      return;
+    }
+
+    return {
+      ...currentData,
+      status: 'claimed',
+      claimedDevice: user.uid,
+      claimedAt: Date.now()
+    };
+  });
+
+  if (!transactionResult.committed) {
+    showPairError(
+      'QR artık geçerli değil',
+      'Bu QR başka bir cihaz tarafından kullanılmış olabilir.'
+    );
+    return;
+  }
 } catch (error) {
   console.error('QR CLAIM HATASI:', error);
 
