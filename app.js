@@ -19,6 +19,75 @@
   const pairToken = params.get('pair');
   const mobileMode = params.get('mobile') === '1';
 
+  // =========================================================
+  // PWA KURULUMU — ANDROID / iPHONE
+  // =========================================================
+  let deferredInstallPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+  });
+
+  function isStandaloneApp() {
+    return window.matchMedia?.('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true;
+  }
+
+  function showPwaInstallPrompt() {
+    if (!mobileMode || isStandaloneApp() || document.getElementById('fpPwaInstall')) return;
+
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const overlay = document.createElement('div');
+    overlay.id = 'fpPwaInstall';
+    overlay.style.cssText = `
+      position:fixed;inset:0;z-index:99999;background:rgba(7,12,24,.94);
+      display:flex;align-items:center;justify-content:center;padding:24px;
+      box-sizing:border-box;font-family:Arial,sans-serif;color:#fff;text-align:center;`;
+
+    if (isIOS) {
+      overlay.innerHTML = `
+        <div style="max-width:430px;background:#111c31;border-radius:22px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.45)">
+          <div style="font-size:52px">📱</div>
+          <h2 style="margin:10px 0">FinPocket hazır</h2>
+          <p style="color:#cbd5e1;line-height:1.6">FinPocket'i telefonuna uygulama olarak eklemek için:</p>
+          <div style="text-align:left;color:#e2e8f0;line-height:1.8">
+            <b>1.</b> Safari'de <b>Paylaş</b> düğmesine dokun.<br>
+            <b>2.</b> <b>Ana Ekrana Ekle</b> seçeneğini seç.<br>
+            <b>3.</b> Sağ üstten <b>Ekle</b> diyerek kurulumu tamamla.
+          </div>
+          <button id="fpPwaClose" style="margin-top:22px;width:100%;padding:14px;border:0;border-radius:12px;background:#334155;color:#fff;font-size:16px">Şimdi kullan</button>
+        </div>`;
+    } else {
+      overlay.innerHTML = `
+        <div style="max-width:430px;background:#111c31;border-radius:22px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.45)">
+          <div style="font-size:52px">📲</div>
+          <h2 style="margin:10px 0">FinPocket hazır</h2>
+          <p style="color:#cbd5e1;line-height:1.6">FinPocket'i telefonuna uygulama olarak yükleyebilirsin.</p>
+          <button id="fpPwaInstallBtn" style="width:100%;padding:15px;border:0;border-radius:12px;background:#f59e0b;color:#111827;font-size:17px;font-weight:700">Uygulamayı Yükle</button>
+          <button id="fpPwaClose" style="margin-top:10px;width:100%;padding:13px;border:0;border-radius:12px;background:#334155;color:#fff;font-size:16px">Şimdi kullan</button>
+        </div>`;
+    }
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#fpPwaClose').onclick = () => overlay.remove();
+
+    const installBtn = overlay.querySelector('#fpPwaInstallBtn');
+    if (installBtn) {
+      installBtn.onclick = async () => {
+        if (!deferredInstallPrompt) {
+          alert('Yükleme seçeneği henüz hazır değil. Chrome menüsünden “Uygulamayı yükle” seçeneğini kullanabilirsin.');
+          return;
+        }
+        deferredInstallPrompt.prompt();
+        await deferredInstallPrompt.userChoice;
+        deferredInstallPrompt = null;
+        overlay.remove();
+      };
+    }
+  }
+
   function showPairError(title, text) {
     document.body.innerHTML = `
       <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b1220;color:#fff;font-family:Arial;text-align:center;padding:30px;box-sizing:border-box">
@@ -708,17 +777,17 @@ function restore(file) {
     setTimeout(openIncome, 250);
   }
 
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(registrations => {
-    registrations.forEach(registration => registration.unregister());
-  });
-
-  if ('caches' in window) {
-    caches.keys().then(keys => {
-      keys.forEach(key => caches.delete(key));
-    });
+  // PWA Service Worker: uygulamayı kaldırmak yerine kayıtlı tut.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(() => console.log('FinPocket Service Worker aktif.'))
+      .catch(err => console.warn('Service Worker kaydı başarısız:', err));
   }
-}
+
+  // QR ile telefonda açıldıktan sonra uygulama kurulum ekranını göster.
+  if (mobileMode) {
+    setTimeout(showPwaInstallPrompt, 700);
+  }
 })();
 
 function generateExcelReport() {
