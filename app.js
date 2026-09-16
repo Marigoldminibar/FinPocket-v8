@@ -117,6 +117,13 @@ const waitForFirebase = async () => {
 
     throw new Error('Firebase Anonymous Auth hazır olmadı.');
 };
+function readCookie(name) {
+    return document.cookie
+        .split('; ')
+        .find(row => row.startsWith(name + '='))
+        ?.split('=')[1] || '';
+}
+
 async function verifyMobileSession(token) {
     const user = await waitForFirebase();
 
@@ -130,13 +137,32 @@ async function verifyMobileSession(token) {
     );
 
     const data = snap.val();
+    const handoffToken = decodeURIComponent(readCookie('fp_pwa_handoff'));
+    const handoffExpiresAt = Number(data?.handoffExpiresAt || 0);
 
-    if (
-        !data ||
-        data.status !== 'claimed' ||
-        data.claimedDevice !== user.uid
-    ) {
+    const sameAuthSession =
+        data?.status === 'claimed' &&
+        data?.claimedDevice === user.uid;
+
+    const validPwaHandoff =
+        data?.status === 'claimed' &&
+        !!handoffToken &&
+        data?.handoffToken === handoffToken &&
+        handoffExpiresAt > Date.now();
+
+    if (!data || (!sameAuthSession && !validPwaHandoff)) {
         throw new Error('Bu cihaz FinPocket ile eşleştirilmemiş.');
+    }
+
+    // iPhone Home Screen uygulaması Safari'den ayrı localStorage kullanır.
+    // iOS 17.2+ kurulum sırasında çerezleri kopyalayabildiği için
+    // kısa ömürlü PWA handoff çerezi ile yeni Firebase oturumunu doğrularız.
+    if (validPwaHandoff && !sameAuthSession) {
+        localStorage.setItem('fp_paired_token', token);
+        localStorage.setItem('fp_paired_device', DEVICE_ID);
+
+        document.cookie =
+            'fp_pwa_handoff=; Max-Age=0; Path=/; SameSite=Lax; Secure';
     }
 
     return data;
@@ -173,16 +199,29 @@ try {
     return;
   }
 
+  const pwaHandoffToken =
+    (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID().replaceAll('-', '')
+      : 'handoff_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+
+  const pwaHandoffExpiresAt = Date.now() + (30 * 60 * 1000);
+
   await fb.set(sessionRef, {
     ...currentData,
     status: "claimed",
     claimedDevice: user.uid,
-    claimedAt: Date.now()
+    claimedAt: Date.now(),
+    handoffToken: pwaHandoffToken,
+    handoffExpiresAt: pwaHandoffExpiresAt
   });
 
   document.cookie =
     'fp_qr_token=' + encodeURIComponent(pairToken) +
     '; Max-Age=31536000; Path=/; SameSite=Lax; Secure';
+
+  document.cookie =
+    'fp_pwa_handoff=' + encodeURIComponent(pwaHandoffToken) +
+    '; Max-Age=1800; Path=/; SameSite=Lax; Secure';
 
   localStorage.setItem('fp_paired_token', pairToken);
   localStorage.setItem('fp_paired_device', DEVICE_ID);
