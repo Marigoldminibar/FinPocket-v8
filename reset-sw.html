@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>FinPocket Service Worker Reset</title>
+</head>
+<body>
+<p>FinPocket bağlantısı yenileniyor...</p>
+
+<script>
+(async () => {
+  try {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+
+      for (const registration of registrations) {
+        await registration.unregister();
+      }
+
+
+cat > reset-sw.html <<'EOF'
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>FinPocket Service Worker Reset</title>
+</head>
+<body>
+<p>FinPocket bağlantısı yenileniyor...</p>
+
+<script>
+(async () => {
+  try {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+
+      for (const registration of registrations) {
+        await registration.unregister();
+      }
+
+      const cacheNames = await caches.keys();
+
+      for (const cacheName of cacheNames) {
+        await caches.delete(cacheName);
+      }
+    }
+
+    document.body.innerHTML =
+      '<h2>✅ FinPocket Service Worker temizlendi.</h2>' +
+      '<p>Şimdi bu sayfayı kapatıp FinPocket\\'ı yeniden açabilirsiniz.</p>';
+  } catch (error) {
+    document.body.innerHTML =
+      '<h2>❌ Temizleme sırasında hata oluştu.</h2>';
+  }
+})();
+</script>
+</body>
+</html>
