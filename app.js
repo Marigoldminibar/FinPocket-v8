@@ -226,14 +226,6 @@ try {
   localStorage.setItem('fp_paired_token', pairToken);
   localStorage.setItem('fp_paired_device', DEVICE_ID);
 
-  const cleanUrl = new URL(window.location.href);
-  cleanUrl.searchParams.delete('pair');
-
-  history.replaceState(
-    {},
-    document.title,
-    cleanUrl.pathname + cleanUrl.search + cleanUrl.hash
-  );
 
 } catch (error) {
   console.error('QR CLAIM HATASI:', error);
