@@ -809,11 +809,11 @@ function restore(file) {
   }
 
   // PWA Service Worker: uygulamayı kaldırmak yerine kayıtlı tut.
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./service-worker.js')
-      .then(() => console.log('FinPocket Service Worker aktif.'))
-      .catch(err => console.warn('Service Worker kaydı başarısız:', err));
-  }
+//  if ('serviceWorker' in navigator) {
+//    navigator.serviceWorker.register('./service-worker.js')
+//      .then(() => console.log('FinPocket Service Worker aktif.'))
+//      .catch(err => console.warn('Service Worker kaydı başarısız:', err));
+//  }
 
   // QR ile telefonda açıldıktan sonra uygulama kurulum ekranını göster.
   if (mobileMode) {
