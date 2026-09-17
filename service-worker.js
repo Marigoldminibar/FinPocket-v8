@@ -55,14 +55,14 @@ self.addEventListener('fetch', event => {
           });
           return response;
         })
-        .catch(() => caches.match(event.request))
+        .catch(() => caches.match(event.request, { ignoreSearch: true }))
     );
     return;
   }
 
   // CSS, ikon vb. cache kullanılabilir.
   event.respondWith(
-    caches.match(event.request)
+    caches.match(event.request, { ignoreSearch: true })
       .then(cached => {
         if (cached) return cached;
 
