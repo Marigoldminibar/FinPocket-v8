@@ -55,7 +55,20 @@ self.addEventListener('fetch', event => {
           });
           return response;
         })
-        .catch(() => caches.match(event.request, { ignoreSearch: true }))
+          .catch(() =>
+            caches.match(event.request, { ignoreSearch: true })
+              .then(cached =>
+                cached || new Response(
+                  "FinPocket çevrimdışı. Lütfen bağlantınızı kontrol edin.",
+                  {
+                    status: 503,
+                    headers: {
+                      "Content-Type": "text/plain; charset=utf-8"
+                    }
+                  }
+                )
+              )
+          )
     );
     return;
   }
