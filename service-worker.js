@@ -1,17 +1,12 @@
-const CACHE = 'finpocket-v6';
+const CACHE = 'finpocket-v7';
 
 const ASSETS = [
   './',
-  './index.html',
   './style.css',
-  './engine.js',
-  './app.js',
-  './storage.js',
   './notifications.js',
   './manifest.json',
   './icons/icon-192.png',
-  './icons/icon-512.png',
-  './qr.html'
+  './icons/icon-512.png'
 ];
 
 self.addEventListener('install', event => {
@@ -41,50 +36,30 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(event.request.url);
 
-  // HTML ve JavaScript her zaman güncel sunucudan alınır.
+  // HTML ve JavaScript'e Service Worker müdahale etmez.
+  // Böylece iPhone Safari/PWA sayfa açılışı normal network üzerinden çalışır.
   if (
     url.pathname.endsWith('.html') ||
     url.pathname.endsWith('.js')
   ) {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          const copy = response.clone();
-          caches.open(CACHE).then(cache => {
-            cache.put(event.request, copy);
-          });
-          return response;
-        })
-          .catch(() =>
-            caches.match(event.request, { ignoreSearch: true })
-              .then(cached =>
-                cached || new Response(
-                  "FinPocket çevrimdışı. Lütfen bağlantınızı kontrol edin.",
-                  {
-                    status: 503,
-                    headers: {
-                      "Content-Type": "text/plain; charset=utf-8"
-                    }
-                  }
-                )
-              )
-          )
-    );
     return;
   }
 
-  // CSS, ikon vb. cache kullanılabilir.
+  // CSS, ikon vb. statik dosyalar cache'den kullanılabilir.
   event.respondWith(
     caches.match(event.request, { ignoreSearch: true })
       .then(cached => {
         if (cached) return cached;
 
         return fetch(event.request).then(response => {
-          const copy = response.clone();
+          if (response && response.ok) {
+            const copy = response.clone();
 
-          caches.open(CACHE).then(cache => {
-            cache.put(event.request, copy);
-          });
+            event.waitUntil(
+              caches.open(CACHE)
+                .then(cache => cache.put(event.request, copy))
+            );
+          }
 
           return response;
         });
