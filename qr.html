@@ -9,138 +9,303 @@
 <style>
 body{padding:20px}
 .qrBox{max-width:520px;margin:0 auto;background:#1e293b;border-radius:22px;padding:24px;text-align:center}
-.qrBox h1{margin-bottom:8px}.qrBox p{color:#94a3b8;line-height:1.5}
-.qrBox input{width:100%;padding:14px;border-radius:11px;border:1px solid #475569;background:#334155;color:#fff;font-size:15px;margin:18px 0 10px;box-sizing:border-box}
+.qrBox h1{margin-bottom:8px}
+.qrBox p{color:#94a3b8;line-height:1.5}
+.qrBox input{width:100%;padding:14px;border-radius:11px;border:1px solid #475569;background:#334155;color:#fff;font-size:15px;margin:10px 0;box-sizing:border-box}
 .qrBox button{width:100%;padding:14px;border:0;border-radius:11px;margin-top:8px;font-size:16px;font-weight:800;cursor:pointer}
-.primary{background:#22c55e;color:#052e16}.secondary{background:#f59e0b;color:#111827}
+.primary{background:#22c55e;color:#052e16}
+.secondary{background:#f59e0b;color:#111827}
+.back{background:#334155;color:#fff}
 .qrImage{background:#fff;border-radius:16px;padding:14px;margin:18px auto;width:min(100%,330px);min-height:40px}
-.qrImage img{display:block;width:100%;height:auto}.warning{font-size:12px;color:#fbbf24;margin-top:14px}
-.back{background:#334155;color:#fff}.error{color:#f87171!important;font-weight:700}
-.lockBox{max-width:360px;margin:60px auto 0;background:#0f172a;border-radius:18px;padding:24px}
+.qrImage img{display:block;width:100%;height:auto}
+.warning{font-size:12px;color:#fbbf24;margin-top:14px}
+.error{color:#f87171!important;font-weight:700}
+.success{color:#4ade80!important;font-weight:700}
 .hidden{display:none!important}
 </style>
 </head>
+
 <body>
 <main class="qrBox">
 
-<section id="lockScreen" class="lockBox">
+<section id="lockScreen">
 <h1>🔐 Yönetici QR</h1>
 <p>QR oluşturmak için yönetici PIN'i gerekli.</p>
+
 <input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="Yönetici PIN'i">
+
 <button class="primary" id="unlock">🔓 Giriş</button>
+
 <p id="pinError" class="error"></p>
+
 <button class="back" onclick="history.back()">← Geri</button>
 </section>
 
+
 <section id="qrScreen" class="hidden">
+
 <h1>📱 FinPocket QR</h1>
-<p>Bu QR'ı telefonla okut. Her telefon kendi verisini ayrı tutar.</p>
-<input id="url" aria-label="FinPocket adresi">
-<button class="primary" id="make">QR Oluştur</button>
-<div class="qrImage" id="qr"><p>QR burada görünecek.</p></div>
-<button class="secondary" id="open">Telefonda açılacak adresi test et</button>
-<button class="back" onclick="history.back()">← Geri</button>
-<p class="warning">Not: QR'ın telefonda çalışması için FinPocket HTTPS üzerinden yayınlanmış olmalıdır.</p>
+
+<p>
+Bu QR sadece giriş bağlantısını taşır.
+QR'ın içinde şifre bulunmaz.
+</p>
+
+<input
+id="qrPassword"
+type="password"
+autocomplete="new-password"
+placeholder="Bu QR için şifre oluştur">
+
+<input
+id="qrPasswordAgain"
+type="password"
+autocomplete="new-password"
+placeholder="Şifreyi tekrar gir">
+
+<button class="primary" id="createQr">
+🔑 QR Şifresi + QR Oluştur
+</button>
+
+<p id="status"></p>
+
+<div class="qrImage" id="qr">
+<p>QR burada görünecek.</p>
+</div>
+
+<input id="url" readonly aria-label="QR adresi">
+
+<button class="secondary" id="open">
+Telefonda Test Et
+</button>
+
+<button class="back" onclick="history.back()">
+← Geri
+</button>
+
+<p class="warning">
+QR şifresi QR'ın içine yazılmaz.
+Aynı QR başka cihazda okutulduğunda da şifre sorulur.
+</p>
+
 </section>
 
 </main>
 
+
 <script>
-const ADMIN_PIN_HASH = "ce332c83a236eaf5a0d83d4630a615dc665115149d1f8bb503c92882819804ab";
+
+const ADMIN_PIN_HASH =
+"ce332c83a236eaf5a0d83d4630a615dc665115149d1f8bb503c92882819804ab";
+
 const lockScreen = document.getElementById("lockScreen");
 const qrScreen = document.getElementById("qrScreen");
 const pinInput = document.getElementById("pin");
 const pinError = document.getElementById("pinError");
-const input = document.getElementById("url");
+const qrPassword = document.getElementById("qrPassword");
+const qrPasswordAgain = document.getElementById("qrPasswordAgain");
+const createQrButton = document.getElementById("createQr");
+const statusEl = document.getElementById("status");
 const qr = document.getElementById("qr");
+const input = document.getElementById("url");
 
 const QR_MAX_ATTEMPTS = 5;
 const QR_LOCK_MS = 15 * 60 * 1000;
 
-async function unlock(){
-    const now = Date.now();
-    const lockedUntil = Number(localStorage.getItem("fp_qr_locked_until") || 0);
-    let attempts = Number(localStorage.getItem("fp_qr_attempts") || 0);
 
-    if(now < lockedUntil){
-        const minutes = Math.ceil((lockedUntil - now) / 60000);
-        pinError.textContent = "Çok fazla yanlış deneme. " + minutes + " dakika bekleyin.";
-        return;
-    }
+async function sha256(value){
 
-    const data = new TextEncoder().encode(pinInput.value);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2,"0")).join("");
+  const data = new TextEncoder().encode(value);
 
-    if(hash === ADMIN_PIN_HASH){
-        localStorage.removeItem("fp_qr_attempts");
-        localStorage.removeItem("fp_qr_locked_until");
-        lockScreen.classList.add("hidden");
-        qrScreen.classList.remove("hidden");
-        pinInput.value = "";
-        pinError.textContent = "";
-        initQR();
-    }else{
-        attempts++;
-        pinInput.value = "";
+  const hashBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    data
+  );
 
-        if(attempts >= QR_MAX_ATTEMPTS){
-            localStorage.setItem("fp_qr_locked_until", String(now + QR_LOCK_MS));
-            localStorage.removeItem("fp_qr_attempts");
-            pinError.textContent = "5 yanlış deneme. 15 dakika kilitlendi.";
-        }else{
-            localStorage.setItem("fp_qr_attempts", String(attempts));
-            pinError.textContent = "PIN yanlış. Kalan deneme: " + (QR_MAX_ATTEMPTS - attempts);
-            pinInput.focus();
-        }
-    }
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2,"0"))
+    .join("");
 }
+
+
+async function unlock(){
+
+  const now = Date.now();
+
+  const lockedUntil =
+    Number(localStorage.getItem("fp_qr_locked_until") || 0);
+
+  let attempts =
+    Number(localStorage.getItem("fp_qr_attempts") || 0);
+
+  if(now < lockedUntil){
+
+    const minutes =
+      Math.ceil((lockedUntil - now) / 60000);
+
+    pinError.textContent =
+      "Çok fazla yanlış deneme. " +
+      minutes +
+      " dakika bekleyin.";
+
+    return;
+  }
+
+  const hash = await sha256(pinInput.value);
+
+  if(hash === ADMIN_PIN_HASH){
+
+    localStorage.removeItem("fp_qr_attempts");
+    localStorage.removeItem("fp_qr_locked_until");
+
+    pinInput.value = "";
+    pinError.textContent = "";
+
+    lockScreen.classList.add("hidden");
+    qrScreen.classList.remove("hidden");
+
+    qrPassword.focus();
+
+    return;
+  }
+
+  attempts++;
+  pinInput.value = "";
+
+  if(attempts >= QR_MAX_ATTEMPTS){
+
+    localStorage.setItem(
+      "fp_qr_locked_until",
+      String(now + QR_LOCK_MS)
+    );
+
+    localStorage.removeItem("fp_qr_attempts");
+
+    pinError.textContent =
+      "5 yanlış deneme. 15 dakika kilitlendi.";
+
+  }else{
+
+    localStorage.setItem(
+      "fp_qr_attempts",
+      String(attempts)
+    );
+
+    pinError.textContent =
+      "PIN yanlış. Kalan deneme: " +
+      (QR_MAX_ATTEMPTS - attempts);
+
+    pinInput.focus();
+  }
+}
+
+
+function createToken(){
+
+  if(
+    window.crypto &&
+    typeof crypto.randomUUID === "function"
+  ){
+    return crypto.randomUUID();
+  }
+
+  return (
+    "qr_" +
+    Date.now() +
+    "_" +
+    Math.random().toString(36).slice(2)
+  );
+}
+
+
+async function createQR(){
+
+  statusEl.textContent = "";
+  statusEl.className = "";
+
+  qr.innerHTML = "<p>QR hazırlanıyor...</p>";
+  input.value = "";
+
+  const password = qrPassword.value.trim();
+  const passwordAgain = qrPasswordAgain.value.trim();
+
+  if(password.length < 6){
+
+    statusEl.textContent =
+      "QR şifresi en az 6 karakter olmalı.";
+
+    statusEl.className = "error";
+
+    qr.innerHTML =
+      "<p>QR oluşturulmadı.</p>";
+
+    return;
+  }
+
+  if(password !== passwordAgain){
+
+    statusEl.textContent =
+      "Şifreler aynı değil.";
+
+    statusEl.className = "error";
+
+    qr.innerHTML =
+      "<p>QR oluşturulmadı.</p>";
+
+    return;
+  }
+
+  const token = createToken();
+
+  /*
+    Bu ilk aşamada sadece QR bağlantısı oluşturuluyor.
+    Firebase kaydı sonraki adımda bağlanacak.
+  */
+
+  const target =
+    new URL("./index.html", location.href);
+
+  target.searchParams.set("qr", token);
+
+  input.value = target.href;
+
+  const qrImageUrl =
+    "https://api.qrserver.com/v1/create-qr-code/" +
+    "?size=600x600&margin=10&data=" +
+    encodeURIComponent(target.href);
+
+  qr.innerHTML =
+    '<img src="' +
+    qrImageUrl +
+    '" alt="FinPocket QR">';
+
+  statusEl.textContent =
+    "QR hazır. Şifre QR kodunun içinde bulunmuyor.";
+
+  statusEl.className = "success";
+
+  qrPassword.value = "";
+  qrPasswordAgain.value = "";
+}
+
 
 document.getElementById("unlock").onclick = unlock;
+
 pinInput.addEventListener("keydown", e => {
-    if(e.key === "Enter") unlock();
+  if(e.key === "Enter") unlock();
 });
 
-function initQR(){
-    if(!/^https?:$/.test(location.protocol)){
-        input.value = "";
-        return;
-    }
+createQrButton.onclick = createQR;
 
-    let pairToken = localStorage.getItem("fp_pair_token");
-
-    if(!pairToken){
-        pairToken = (crypto.randomUUID)
-            ? crypto.randomUUID()
-            : "pair_" + Date.now() + "_" + Math.random().toString(36).slice(2);
-
-        localStorage.setItem("fp_pair_token", pairToken);
-    }
-
-    const target = new URL("./index.html", location.href);
-
-    target.searchParams.set("mobile", "1");
-    target.searchParams.set("pair", pairToken);
-
-    input.value = target.href;
-
-    make();
-}
-
-function make(){
-    const v = input.value.trim();
-    if(!/^https?:\/\//i.test(v)){
-        qr.innerHTML='<p style="color:#fbbf24">Önce HTTPS ile başlayan FinPocket adresini gir.</p>';
-        return;
-    }
-    const u='https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=10&data='+encodeURIComponent(v);
-    qr.innerHTML='<img src="'+u+'" alt="FinPocket QR">';
-}
-
-document.getElementById("make").onclick = make;
 document.getElementById("open").onclick = () => {
-    if(input.value.trim()) location.href = input.value.trim();
+
+  if(input.value.trim()){
+    location.href = input.value.trim();
+  }
+
 };
+
 </script>
+
 </body>
 </html>
