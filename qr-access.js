@@ -359,6 +359,12 @@ async function requireQrAccess(token) {
 }
 
 function initQrRole() {
+  const token = new URLSearchParams(location.search).get('qr');
+
+  // QR bağlantısıyla açıldıysa, doğrulama tamamlanmadan
+  // cihazı yönetici olarak işaretleme.
+  if (token) return;
+
   if (isQrStaffDevice()) {
     applyQrRoleUI();
     return;
