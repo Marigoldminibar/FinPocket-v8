@@ -21,7 +21,7 @@ const QR_STAFF_KEY = 'fp_qr_staff_mode';
 const QR_MANAGER_KEY = 'fp_manager_device';
 
 function isQrStaffDevice() {
-  return sessionStorage.getItem(QR_STAFF_KEY) === '1';
+  return localStorage.getItem(QR_STAFF_KEY) === '1';
 }
 
 function isManagerDevice() {
@@ -35,15 +35,21 @@ function markManagerDevice() {
 }
 
 function markQrStaffDevice() {
-  sessionStorage.setItem(QR_STAFF_KEY, '1');
+  localStorage.setItem(QR_STAFF_KEY, '1');
   localStorage.removeItem(QR_MANAGER_KEY);
 }
 
 function applyQrRoleUI() {
-  const button = document.querySelector('[data-manager-only="true"]');
-  if (!button) return;
+  const buttons = document.querySelectorAll(
+    '[data-manager-only="true"]'
+  );
 
-  button.hidden = !isManagerDevice();
+  buttons.forEach(button => {
+    const manager = isManagerDevice();
+
+    button.hidden = !manager;
+    button.style.display = manager ? '' : 'none';
+  });
 }
 
 function qrEscape(value) {
@@ -328,6 +334,7 @@ async function requireQrAccess(token) {
       // storage.js / app.js yeni cihazın kendi DEVICE_ID'sini kullanmaya devam eder.
       sessionStorage.setItem(`fp_qr_access_${token}`, '1');
       markQrStaffDevice();
+      applyQrRoleUI();
 
       const cleanUrl = new URL(location.href);
       cleanUrl.searchParams.delete('qr');
@@ -361,20 +368,41 @@ async function requireQrAccess(token) {
 function initQrRole() {
   const token = new URLSearchParams(location.search).get('qr');
 
-  // QR bağlantısıyla açıldıysa, doğrulama tamamlanmadan
-  // cihazı yönetici olarak işaretleme.
-  if (token) return;
+  // QR URL'si ile açılan cihazı kesinlikle yönetici yapma.
+  if (token) {
+    applyQrRoleUI();
+    return;
+  }
 
+  // Daha önce QR ile STAFF olmuş cihaz STAFF olarak kalır.
   if (isQrStaffDevice()) {
     applyQrRoleUI();
     return;
   }
 
+  // Rol yoksa normal cihazdır ve MANAGER olur.
   markManagerDevice();
   applyQrRoleUI();
 }
 
 initQrRole();
+
+function protectManagerOnlyUI() {
+  applyQrRoleUI();
+
+  if (!window.MutationObserver) return;
+
+  const observer = new MutationObserver(() => {
+    applyQrRoleUI();
+  });
+
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
+}
+
+protectManagerOnlyUI();
 
 window.FinPocketQR = {
   create: createQrAccess,
