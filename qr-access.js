@@ -17,6 +17,35 @@ const QR_SESSION_LIFETIME = 365 * 24 * 60 * 60 * 1000;
 
 let qrFirebasePromise = null;
 
+const QR_STAFF_KEY = 'fp_qr_staff_mode';
+const QR_MANAGER_KEY = 'fp_manager_device';
+
+function isQrStaffDevice() {
+  return sessionStorage.getItem(QR_STAFF_KEY) === '1';
+}
+
+function isManagerDevice() {
+  return !isQrStaffDevice() && localStorage.getItem(QR_MANAGER_KEY) === '1';
+}
+
+function markManagerDevice() {
+  if (!isQrStaffDevice()) {
+    localStorage.setItem(QR_MANAGER_KEY, '1');
+  }
+}
+
+function markQrStaffDevice() {
+  sessionStorage.setItem(QR_STAFF_KEY, '1');
+  localStorage.removeItem(QR_MANAGER_KEY);
+}
+
+function applyQrRoleUI() {
+  const button = document.querySelector('[data-manager-only="true"]');
+  if (!button) return;
+
+  button.hidden = !isManagerDevice();
+}
+
 function qrEscape(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -143,6 +172,12 @@ function getAppBaseUrl() {
 }
 
 async function createQrAccess() {
+     if (!isManagerDevice()) {
+    applyQrRoleUI();
+    alert('Bu cihazda Yönetici QR oluşturma yetkisi bulunmuyor.');
+    return;
+  }
+
   const passwordOverlay = showQrOverlay({
     title: 'Yönetici QR Oluştur',
     body: 'Bu QR için ayrı bir erişim şifresi belirle. Şifre QR kodunun içine yazılmaz.',
@@ -292,6 +327,7 @@ async function requireQrAccess(token) {
       // QR yalnızca erişim yetkisini doğrular. Finans verisi okunmaz veya taşınmaz.
       // storage.js / app.js yeni cihazın kendi DEVICE_ID'sini kullanmaya devam eder.
       sessionStorage.setItem(`fp_qr_access_${token}`, '1');
+      markQrStaffDevice();
 
       const cleanUrl = new URL(location.href);
       cleanUrl.searchParams.delete('qr');
@@ -322,6 +358,18 @@ async function requireQrAccess(token) {
   return false;
 }
 
+function initQrRole() {
+  if (isQrStaffDevice()) {
+    applyQrRoleUI();
+    return;
+  }
+
+  markManagerDevice();
+  applyQrRoleUI();
+}
+
+initQrRole();
+
 window.FinPocketQR = {
   create: createQrAccess,
   require: requireQrAccess
@@ -339,7 +387,15 @@ window.FinPocketQR = {
 document.addEventListener('click', event => {
   const button = event.target.closest?.('#qrBtn');
   if (!button) return;
+
   event.preventDefault();
   event.stopImmediatePropagation();
+
+  if (!isManagerDevice()) {
+    applyQrRoleUI();
+    alert('Bu cihazda Yönetici QR oluşturma yetkisi bulunmuyor.');
+    return;
+  }
+
   createQrAccess();
 }, true);
